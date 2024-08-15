@@ -9,5 +9,5 @@ pdf.add_page()
 pdf.set_font("Ariel", size=15)
 f = open(sys.arg[1], "r")
 for x in f: 
-    pdf.cell(200, 10, txt = x, ln = 1, align = 'L'_
+    pdf.cell(200, 10, txt = x, ln = 1, align = 'L')
 pdf.output(sys.arg[2])
