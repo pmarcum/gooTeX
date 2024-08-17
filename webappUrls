@@ -60,7 +60,7 @@
         "githubRaw":              "https://raw.githubusercontent.com/[INSERT_GITHUBUSERNAME]/[INSERT_GITHUBREPONAME]/main/[INSERT_PDFFILENAME]",
         "githubApi":              "application/vnd.github.raw+json"
       },
-   "workflowFilenames": 
+   "workflow": 
       {
         "folder":   ".github/workflows/",
         "compileLatex":  
