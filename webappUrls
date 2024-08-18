@@ -62,6 +62,7 @@
       },
    "workflow": 
       {
+        "run":      "https://github.com/[INSERT_GITHUBUSERNAME]/[INSERT_GITHUBREPONAME]/actions",
         "folder":   ".github/workflows/",
         "compileLatex":  
           {
