@@ -58,7 +58,8 @@
         "githubRepo":             "https://github.com/[INSERT_GITHUBUSERNAME]/[INSERT_GITHUBREPONAME]",
         "githubBlob":             "https://github.com/[INSERT_GITHUBUSERNAME]/[INSERT_GITHUBREPONAME]/blob/main/[INSERT_PDFFILENAME]",
         "githubRaw":              "https://raw.githubusercontent.com/[INSERT_GITHUBUSERNAME]/[INSERT_GITHUBREPONAME]/main/[INSERT_PDFFILENAME]",
-        "githubApi":              "application/vnd.github.raw+json"
+        "githubApi":              "application/vnd.github.raw+json",
+        "googleThumbnail":        "https://drive.google.com/thumbnail?authuser=0&sz=w[INSERT_WIDTH]&id=[INSERT_GOOGLEFILEID]"
       },
    "workflow": 
       {
