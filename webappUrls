@@ -41,6 +41,13 @@
         "dev":    "",
         "name":   "WorPT_update"
       },
+   "googleTree":
+      {
+         "script": "https://script.google.com/home/projects/1dCWGuaGWdX7LTW1aj8ojsgNRDprZCSWBXTQVbXkEuqCqbqNRBXHLQ9ZZ/edit",
+         "exec":   "https://script.google.com/macros/s/AKfycbwuT4wxXJKUoD9qV27iIjQNPl5JkVVmQdkguxBhSQdYI1CpmbLQu7OGxV8bbXKNe1WKbQ/exec",
+         "dev":    "https://script.google.com/macros/s/AKfycbxBT-5OtwPsVv8MqP84Mws5JecI-76fC682YUJs_6Rl/dev",
+         "name":   "googleTree"
+      },
    "urls":        
       {
         "githubRepoApiBase":      "https://api.github.com/repos/[INSERT_GITHUBUSERNAME]/[INSERT_GITHUBREPONAME]",
