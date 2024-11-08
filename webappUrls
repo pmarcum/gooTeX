@@ -48,6 +48,13 @@
          "dev":    "https://script.google.com/macros/s/AKfycbxBT-5OtwPsVv8MqP84Mws5JecI-76fC682YUJs_6Rl/dev",
          "name":   "googleTree"
       },
+   "pingUrl":
+      {
+         "script": "https://script.google.com/home/projects/1HL5yqwo5naILLoaOybMZ9FQ45oPc4NId_XIlYfk23FHDYvUtxGagytx5/edit",
+         "exec":   "https://script.google.com/macros/s/AKfycbzmDnsT-yjDhW9Edt-Jdi37FJZL_f2oKrme18OhXbZORZVkOXCBtrD-dPRB4NA6PeIp6A/exec", 
+         "dev":    "https://script.google.com/macros/s/AKfycbyGGiIm6bH46hrhFmVIAjNgycGkB--4d1yY4AuVVe10/dev",
+         "name":   "pingUrl"
+      },
    "urls":        
       {
         "githubRepoApiBase":      "https://api.github.com/repos/[INSERT_GITHUBUSERNAME]/[INSERT_GITHUBREPONAME]",
