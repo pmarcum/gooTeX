@@ -11,7 +11,7 @@ https://docs.google.com/document/d/1OX4gX1A2F9QsRknSIN9ed7jkZ9lxOZ46R1ZyF43mqrM/
 
 If you hit the "Copy" button that appears when you follow the above link, a copy of the Google Doc template will appear at the top of your folder hierarchy, e.g., "My Drive" folder in your Google Drive. I recommend that you move the $\textbf{\color{green}{gooTeX}}$ template into a designated folder for the paper/proposal that you are working on. 
 
-<b><i>I realize that you probably won't be able to do much at this point without a detailed how-to file.  An accompanying "how to" video or manual demonstrating how to install and use it is planned for release in the near future.</i><b>
+<b><i>I realize that you probably won't be able to do much at this point without a detailed how-to file.  An accompanying "how to" video or manual demonstrating how to install and use it is planned for release in the near future.</i></b>
 
 
            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
