@@ -22,5 +22,5 @@ If you hit the "Copy" button that appears when you follow the above link, a copy
 Updates: ver 11252024 is the latest version
 
 11/25/2024
-- The first release of <b><i>gooTeX</i></b>  has been made! (but without accompanying "how-to-use" information, which is forthcoming).
+- The first release of $\textbf{\color{green}{gooTeX}}$ has been made! (but without accompanying "how-to-use" information, which is forthcoming).
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
