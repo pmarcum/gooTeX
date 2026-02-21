@@ -1,0 +1,6 @@
+{
+  "DOCUMENT_ID": "insert_your_google_doc_id_here",
+  "PROJECT_FOLDER_ID": "insert_your_drive_project_folder_id_here",
+  "COMPILED_FOLDER_ID": "insert_your_drive_output_folder_id_here",
+  "JOB_NAME": "manuscript"
+}

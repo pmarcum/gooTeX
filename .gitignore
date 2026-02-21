@@ -1,0 +1,15 @@
+# Virtual Environments
+gootex_env/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Private Google Credentials & Configs
+service_account.json
+config.json
+
+# Build Artifacts
+src/*.egg-info/

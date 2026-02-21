@@ -1,0 +1,25 @@
+# Google Cloud Credentials (CRITICAL)
+service_account.json
+
+# Local Configuration (Contains private Drive Folder IDs)
+config.json
+
+# Python Virtual Environments
+venv/
+env/
+gootex_env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local LaTeX Compilation Artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.pdf
