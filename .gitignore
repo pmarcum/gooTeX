@@ -12,4 +12,4 @@ service_account.json
 config.json
 
 # Build Artifacts
-src/*.egg-info/
+src/*.egg-info/*~
