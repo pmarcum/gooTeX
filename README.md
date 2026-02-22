@@ -23,7 +23,7 @@ For users who require faster turnaround times or frequent recompilations, this r
 
 ### The Template
 To get started with either method, you must first create your manuscript from the <span style="color:green; font-weight:bold;">gooTeX</span> template:
-[https://docs.google.com/document/d/1OX4gX1A2F9QsRknSIN9ed7jkZ9lxOZ46R1ZyF43mqrM/copy](https://docs.google.com/document/d/1OX4gX1A2F9QsRknSIN9ed7jkZ9lxOZ46R1ZyF43mqrM/copy)
+[https://docs.google.com/document/d/1Y5WeR3lr1AepJEe5M1x7TT9k7JqnIQ-JBTpEq3ESP88/copy](https://docs.google.com/document/d/1Y5WeR3lr1AepJEe5M1x7TT9k7JqnIQ-JBTpEq3ESP88/copy)
 
 ---
 
