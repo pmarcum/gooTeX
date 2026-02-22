@@ -7,6 +7,7 @@ The <span style="color:green; font-weight:bold;">gooTeX</span> template includes
 * **.bib File Integration:** A searchable, clickable sidebar populated from your `.bib` file.
 * **Live PDF Viewer:** A separate browser tab for viewing the rendered manuscript and inspection logs.
 * **Outline Markers:** Recognizes certain LaTeX commenting characters, automatically highlighting them to grab colleagues' attention or marking them in the document's outline for quick reference.
+* **LaTeX Errors:** Compilation errors/warnings are presented in a sidebar; clicking goes to relevant location in document, and a button provides targetted AI assistance.
 * **LaTeX Linting:** Basic syntax checking within the Doc.
 
 Behind the scenes, <span style="color:green; font-weight:bold;">gooTeX</span> operates via a hybrid architecture, allowing you to compile your manuscript using a cloud-based server or a high-speed local Python engine.
