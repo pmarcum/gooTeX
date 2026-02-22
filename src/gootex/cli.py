@@ -236,6 +236,8 @@ def compile_locally():
         print("✅ Done!")
     else:
         print(f"❌ Compilation failed. Check {JOB_NAME}.log for details.")
-        
+        import sys
+        sys.exit(1)  # Added to prevent the GUI from printing false success
+                        
 if __name__ == '__main__':
     compile_locally()
