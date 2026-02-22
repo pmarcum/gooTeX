@@ -40,73 +40,6 @@ def get_local_md5(filename):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
-def sync_assets(folder_id, local_path="."):
-    """Recursively syncs assets and resolves shortcuts."""
-    results = drive_service.files().list(
-        q=f"'{folder_id}' in parents and trashed = false",
-        fields="files(id, name, md5Checksum, mimeType, shortcutDetails)"
-    ).execute()
-    files = results.get('files', [])
-
-    for f in files:
-        file_id = f.get('id')
-        name = f.get('name')
-        mime_type = f.get('mimeType')
-        remote_md5 = f.get('md5Checksum')
-        target_path = os.path.join(local_path, name)
-
-        # 1. Handle Subfolders
-        if mime_type == 'application/vnd.google-apps.folder':
-            if not os.path.exists(target_path):
-                os.makedirs(target_path)
-            sync_assets(file_id, target_path)
-            continue
-
-        # 2. Handle Shortcuts (pointing to .bib, .cls, .sty, etc.)
-        if mime_type == 'application/vnd.google-apps.shortcut':
-            details = f.get('shortcutDetails', {})
-            target_id = details.get('targetId')
-            if target_id:
-                # We update the file_id so the download pulls the REAL data,
-                # but we keep the shortcut's 'name' so it saves as variables.sty
-                file_id = target_id
-                # UPDATE mime_type so the downloader knows if the target is a Google Doc
-                mime_type = details.get('targetMimeType', mime_type)
-                print(f"  🔗 Resolved shortcut '{name}' to ID: {file_id}")
-
-        # 3. Filter and Download
-        valid_exts = ('.png', '.jpg', '.jpeg', '.pdf', '.bib', '.cls', '.sty', '.bbl', '.bst')
-        if name.lower().endswith(valid_exts):
-            # If the file is missing locally, download it.
-            if not os.path.exists(target_path):
-                print(f"  📥 Syncing: {target_path}...")
-                
-                # Check if it's a native Google Doc (like variables.sty or Extragalactic.bib)
-                if mime_type == 'application/vnd.google-apps.document':
-                    print(f"     ↳ Detected Google Doc format. Extracting text with suggested edits accepted...")
-                    doc_data = docs_service.documents().get(
-                        documentId=file_id,
-                        suggestionsViewMode='PREVIEW_SUGGESTIONS_ACCEPTED'
-                    ).execute()
-                    
-                    doc_text = ""
-                    for element in doc_data.get('body').get('content', []):
-                        doc_text += extract_text(element)
-                        
-                    with open(target_path, "w", encoding="utf-8") as out_f:
-                        out_f.write(doc_text)
-                        
-                else:
-                    # Original Binary Download
-                    request = drive_service.files().get_media(fileId=file_id)
-                    with io.FileIO(target_path, 'wb') as fh:
-                        downloader = MediaIoBaseDownload(fh, request)
-                        done = False
-                        while not done:
-                            _, done = downloader.next_chunk()
-            else:
-                print(f"  ✅ {name} already exists. Skipping.")
-
 def clean_temp_files():
     print("🧹 Cleaning temporary LaTeX files...")
     # Added .bbl and .blg to the list
@@ -144,22 +77,141 @@ def extract_text(element):
                     text += extract_text(content_element)
     return text
 
+def sync_assets(folder_id, local_path="."):
+    """Recursively syncs assets and resolves shortcuts."""
+    import datetime
+    results = drive_service.files().list(
+        q=f"'{folder_id}' in parents and trashed = false",
+        fields="files(id, name, md5Checksum, mimeType, modifiedTime, shortcutDetails)"
+    ).execute()
+    files = results.get('files', [])
+
+    for f in files:
+        file_id = f.get('id')
+        name = f.get('name')
+        mime_type = f.get('mimeType')
+        remote_md5 = f.get('md5Checksum')
+        remote_time = f.get('modifiedTime')
+        target_path = os.path.join(local_path, name)
+
+        # 1. Handle Subfolders
+        if mime_type == 'application/vnd.google-apps.folder':
+            if not os.path.exists(target_path):
+                os.makedirs(target_path)
+            sync_assets(file_id, target_path)
+            continue
+
+        # 2. Handle Shortcuts
+        if mime_type == 'application/vnd.google-apps.shortcut':
+            details = f.get('shortcutDetails', {})
+            target_id = details.get('targetId')
+            if target_id:
+                file_id = target_id
+                mime_type = details.get('targetMimeType', mime_type)
+                print(f"  🔗 Resolved shortcut '{name}' to ID: {file_id}")
+                # Fetch metadata for the actual target to ensure delta checks work
+                try:
+                    target_meta = drive_service.files().get(fileId=file_id, fields="md5Checksum, modifiedTime").execute()
+                    remote_md5 = target_meta.get('md5Checksum')
+                    remote_time = target_meta.get('modifiedTime')
+                except Exception:
+                    pass
+
+        # 3. Filter and Download
+        # ADDED .tex to valid_exts
+        valid_exts = ('.tex', '.png', '.jpg', '.jpeg', '.pdf', '.bib', '.cls', '.sty', '.bbl', '.bst')
+        if name.lower().endswith(valid_exts):
+            needs_download = False
+            
+            if not os.path.exists(target_path):
+                needs_download = True
+            else:
+                # Delta Checks
+                if mime_type == 'application/vnd.google-apps.document':
+                    if remote_time:
+                        r_time = remote_time.replace('Z', '+00:00')
+                        remote_ts = datetime.datetime.fromisoformat(r_time).timestamp()
+                        local_ts = os.path.getmtime(target_path)
+                        if remote_ts > local_ts:
+                            needs_download = True
+                else:
+                    local_md5 = get_local_md5(target_path)
+                    if remote_md5 and local_md5 != remote_md5:
+                        needs_download = True
+
+            if needs_download:
+                print(f"  📥 Syncing: {target_path}...")
+                
+                if mime_type == 'application/vnd.google-apps.document':
+                    print(f"     ↳ Detected Google Doc format. Extracting text with suggested edits accepted...")
+                    doc_data = docs_service.documents().get(
+                        documentId=file_id,
+                        suggestionsViewMode='PREVIEW_SUGGESTIONS_ACCEPTED'
+                    ).execute()
+                    
+                    doc_text = ""
+                    for element in doc_data.get('body').get('content', []):
+                        doc_text += extract_text(element)
+                        
+                    with open(target_path, "w", encoding="utf-8") as out_f:
+                        out_f.write(doc_text)
+                        
+                    # Sync local timestamp to remote to prevent constant re-downloads
+                    if remote_time:
+                        r_time = remote_time.replace('Z', '+00:00')
+                        remote_ts = datetime.datetime.fromisoformat(r_time).timestamp()
+                        os.utime(target_path, (remote_ts, remote_ts))
+                        
+                else:
+                    # Original Binary Download
+                    request = drive_service.files().get_media(fileId=file_id)
+                    with io.FileIO(target_path, 'wb') as fh:
+                        downloader = MediaIoBaseDownload(fh, request)
+                        done = False
+                        while not done:
+                            _, done = downloader.next_chunk()
+            else:
+                print(f"  ✅ {name} is up to date. Skipping.")
+
 def compile_locally():
+    import datetime
     print("🔄 Initializing asset sync...")
     sync_assets(PROJECT_FOLDER_ID)
     
-    print("📥 Pulling LaTeX source...")
-    doc = docs_service.documents().get(
-        documentId=DOCUMENT_ID,
-        suggestionsViewMode='PREVIEW_SUGGESTIONS_ACCEPTED'
-    ).execute()
+    print("📥 Checking Main Document status...")
+    main_target = f"{JOB_NAME}.tex"
+    needs_main_download = True
+    
+    try:
+        main_meta = drive_service.files().get(fileId=DOCUMENT_ID, fields="modifiedTime").execute()
+        remote_time = main_meta.get('modifiedTime')
+        if os.path.exists(main_target) and remote_time:
+            r_time = remote_time.replace('Z', '+00:00')
+            remote_ts = datetime.datetime.fromisoformat(r_time).timestamp()
+            local_ts = os.path.getmtime(main_target)
+            if remote_ts <= local_ts:
+                needs_main_download = False
+    except Exception as e:
+        pass # Force download if metadata fails
+        
+    if needs_main_download:
+        print("  📥 Pulling LaTeX source (Updates detected)...")
+        doc = docs_service.documents().get(
+            documentId=DOCUMENT_ID,
+            suggestionsViewMode='PREVIEW_SUGGESTIONS_ACCEPTED'
+        ).execute()
 
-    full_latex_string = ""
-    for element in doc.get('body').get('content', []):
-        full_latex_string += extract_text(element)
+        full_latex_string = ""
+        for element in doc.get('body').get('content', []):
+            full_latex_string += extract_text(element)
 
-    with open(f"{JOB_NAME}.tex", "w", encoding="utf-8") as f:
-        f.write(full_latex_string)
+        with open(main_target, "w", encoding="utf-8") as f:
+            f.write(full_latex_string)
+            
+        if 'remote_ts' in locals():
+            os.utime(main_target, (remote_ts, remote_ts))
+    else:
+        print("  ✅ Main Document is up to date. Skipping download.")
         
     print("⚙️ Compiling with local pdflatex (Multi-pass)...")
     
@@ -178,17 +230,11 @@ def compile_locally():
 
     if result.returncode == 0:
         pdf_file = f"{JOB_NAME}.pdf"
-        
-        # UPLOAD REMOVED to bypass Service Account 403 storageQuotaExceeded error
-        # file_metadata = {'name': pdf_file, 'parents': [COMPILED_FOLDER_ID]}
-        # media = MediaFileUpload(pdf_file, mimetype='application/pdf')
-        # drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        
         clean_temp_files()
         open_pdf(pdf_file)
         print("✅ Done!")
     else:
         print(f"❌ Compilation failed. Check {JOB_NAME}.log for details.")
-
+        
 if __name__ == '__main__':
     compile_locally()
