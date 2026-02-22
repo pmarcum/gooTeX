@@ -70,6 +70,8 @@ def sync_assets(folder_id, local_path="."):
                 # We update the file_id so the download pulls the REAL data,
                 # but we keep the shortcut's 'name' so it saves as variables.sty
                 file_id = target_id
+                # UPDATE mime_type so the downloader knows if the target is a Google Doc
+                mime_type = details.get('targetMimeType', mime_type)
                 print(f"  🔗 Resolved shortcut '{name}' to ID: {file_id}")
 
         # 3. Filter and Download
@@ -78,15 +80,33 @@ def sync_assets(folder_id, local_path="."):
             # If the file is missing locally, download it.
             if not os.path.exists(target_path):
                 print(f"  📥 Syncing: {target_path}...")
-                request = drive_service.files().get_media(fileId=file_id)
-                with io.FileIO(target_path, 'wb') as fh:
-                    downloader = MediaIoBaseDownload(fh, request)
-                    done = False
-                    while not done:
-                        _, done = downloader.next_chunk()
+                
+                # Check if it's a native Google Doc (like variables.sty or Extragalactic.bib)
+                if mime_type == 'application/vnd.google-apps.document':
+                    print(f"     ↳ Detected Google Doc format. Extracting text with suggested edits accepted...")
+                    doc_data = docs_service.documents().get(
+                        documentId=file_id,
+                        suggestionsViewMode='PREVIEW_SUGGESTIONS_ACCEPTED'
+                    ).execute()
+                    
+                    doc_text = ""
+                    for element in doc_data.get('body').get('content', []):
+                        doc_text += extract_text(element)
+                        
+                    with open(target_path, "w", encoding="utf-8") as out_f:
+                        out_f.write(doc_text)
+                        
+                else:
+                    # Original Binary Download
+                    request = drive_service.files().get_media(fileId=file_id)
+                    with io.FileIO(target_path, 'wb') as fh:
+                        downloader = MediaIoBaseDownload(fh, request)
+                        done = False
+                        while not done:
+                            _, done = downloader.next_chunk()
             else:
                 print(f"  ✅ {name} already exists. Skipping.")
-                
+
 def clean_temp_files():
     print("🧹 Cleaning temporary LaTeX files...")
     # Added .bbl and .blg to the list
