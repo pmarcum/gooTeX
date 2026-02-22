@@ -20,8 +20,8 @@ Your setup requirements depend entirely on your role in the group and how fast y
 
 | Your Role | Desired Compile Speed | Google Doc Action | Local Software Install? | `service_account.json` Source |
 | :--- | :--- | :--- | :--- | :--- |
-| **Server Host** (Providing compute) | **Standard** (Cloud) | Click *Initialize Drive Folder*, Run Colab | None | Not required |
-| **Server Host** (Providing compute) | **Express** (Local) | Click *Initialize Drive Folder* | Install via `pipx` | Generate in Google Cloud Console |
+| **Server Host** (Providing LaTeX compiler) | **Standard** (Cloud) | Click *Initialize Drive Folder*, Run Colab | None | Not required |
+| **Server Host** (Providing LaTeX compiler) | **Express** (Local) | Click *Initialize Drive Folder* | Install via `pipx` | Generate in Google Cloud Console |
 | **Author** (Starting or joining paper)| **Dependent on Host** | Just write! | None | Not required |
 | **Author** (Starting or joining paper)| **Express** (Local) | None | Install via `pipx` | Ask the Host to send you their file |
 
