@@ -118,9 +118,10 @@ def sync_assets(folder_id, local_path="."):
                     pass
 
         # 3. Filter and Download
-        # ADDED .tex to valid_exts
         valid_exts = ('.tex', '.png', '.jpg', '.jpeg', '.pdf', '.bib', '.cls', '.sty', '.bbl', '.bst')
-        if name.lower().endswith(valid_exts):
+        
+        # EXCLUSION ADDED HERE
+        if name.lower().endswith(valid_exts) and "UNCOMPRESSED" not in name.upper():
             needs_download = False
             
             if not os.path.exists(target_path):
