@@ -1,0 +1,58 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: finalLatexWithLibrary.aux
+The style file: aasjournal.bst
+Database file #1: Extragalactic.bib
+Warning--entry type for "2012ascl.soft08017R" isn't style-file defined
+--line 752 of file Extragalactic.bib
+Warning--I didn't find a database entry for "2000ascl.soft03002S"
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Warning--can't use both author and editor fields in beck+2013inbook_641
+Warning--empty publisher in beck+2013inbook_641
+Warning--empty publisher in beckman2021book
+Warning--empty publisher in devaucouleurs+1991book
+Warning--empty publisher in heckman+2017incollection_2431
+Warning--empty publisher in 2021pdaa.book.....N
+Warning--empty publisher in peterson2006incollection_77
+You've used 149 entries,
+            3168 wiz_defined-function locations,
+            1577 strings with 41503 characters,
+and the built_in function-call counts, 71309 in all, are:
+= -- 5902
+> -- 5608
+< -- 49
++ -- 1886
+- -- 2085
+* -- 6573
+:= -- 13129
+add.period$ -- 149
+call.type$ -- 149
+change.case$ -- 916
+chr.to.int$ -- 147
+cite$ -- 156
+duplicate$ -- 2575
+empty$ -- 4115
+format.name$ -- 2253
+if$ -- 14279
+int.to.chr$ -- 3
+int.to.str$ -- 0
+missing$ -- 136
+newline$ -- 455
+num.names$ -- 603
+pop$ -- 1026
+preamble$ -- 1
+purify$ -- 916
+quote$ -- 0
+skip$ -- 2110
+stack$ -- 0
+substring$ -- 2476
+swap$ -- 73
+text.length$ -- 6
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 1329
+warning$ -- 7
+while$ -- 562
+width$ -- 0
+write$ -- 1635
+(There were 9 warnings)

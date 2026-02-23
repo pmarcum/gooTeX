@@ -238,6 +238,62 @@ def compile_locally():
         print(f"❌ Compilation failed. Check {JOB_NAME}.log for details.")
         import sys
         sys.exit(1)  # Added to prevent the GUI from printing false success
-                        
+
+def prepare_submission():
+    """Flattens structure, prunes bib, and creates a tarball for publishers."""
+    import shutil, tarfile, re
+    
+    # Safety Check: Ensure the document has been compiled at least once
+    # so that the .aux file exists for bib pruning.
+    aux_file = f"{JOB_NAME}.aux"
+    if not os.path.exists(aux_file):
+        print("⚠️  No compilation data found. Triggering full Sync & Compile first...")
+        compile_locally()
+    
+    sub_dir = f"{JOB_NAME}_submission"
+    if os.path.exists(sub_dir):
+        shutil.rmtree(sub_dir)
+    os.makedirs(sub_dir)
+    
+    print(f"📦 Preparing submission in {sub_dir}...")
+
+    # 1. Prune the Bibliography using bibexport
+    # This relies on the .aux file generated during compilation
+    print("  📚 Pruning bibliography to cited items only...")
+    subprocess.run(["bibexport", "-o", os.path.join(sub_dir, "references.bib"), aux_file], 
+                   stdout=subprocess.DEVNULL)
+    
+    # 2. Flatten and Fix LaTeX Source
+    print("  📝 Flattening LaTeX source and updating paths...")
+    with open(f"{JOB_NAME}.tex", "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    # Replace bibliography command to point to the new local pruned file
+    content = re.sub(r"\\bibliography\{.*\}", r"\\bibliography{references}", content)
+    
+    # Find all graphics paths and flatten them
+    # Example: {FIGURES/image.png} -> {image.png}
+    content = re.sub(r"\\includegraphics(\[.*?\])?\{(?:.*?/)?(.*?)\}", r"\\includegraphics\1{\2}", content)
+    
+    with open(os.path.join(sub_dir, f"{JOB_NAME}.tex"), "w", encoding="utf-8") as f:
+        f.write(content)
+
+    # 3. Copy Assets (Images, STY, CLS) to the root of sub_dir
+    print("  🖼️  Collecting assets...")
+    valid_exts = ('.png', '.jpg', '.jpeg', '.pdf', '.cls', '.sty', '.bst')
+    for root, dirs, files in os.walk("."):
+        if sub_dir in root: continue 
+        for file in files:
+            if file.lower().endswith(valid_exts) and "UNCOMPRESSED" not in file.upper():
+                shutil.copy2(os.path.join(root, file), os.path.join(sub_dir, file))
+
+    # 4. Create Tarball
+    tar_name = f"{sub_dir}.tar.gz"
+    print(f"  🗜️  Creating tarball: {tar_name}...")
+    with tarfile.open(tar_name, "w:gz") as tar:
+        tar.add(sub_dir, arcname=os.path.basename(sub_dir))
+    
+    print(f"✅ Submission bundle ready: {tar_name}")
+        
 if __name__ == '__main__':
     compile_locally()

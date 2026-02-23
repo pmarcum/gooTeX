@@ -1,0 +1,37 @@
+Metadata-Version: 2.4
+Name: gootex
+Version: 1.0.0
+Summary: A Google Docs to LaTeX compilation pipeline.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: google-api-python-client
+Requires-Dist: google-auth
+
+# gooTeX Local Compilation Environment
+
+This script (`gootex_local.py`) pulls a LaTeX manuscript from Google Docs, resolves Google Drive asset shortcuts (figures, `.bib`, `.sty`), and compiles a localized PDF using a multi-pass `pdflatex` and `bibtex` sequence.
+
+## System Prerequisites
+* **Python:** 3.10 or higher.
+* **LaTeX Distribution:** * **Linux (including WSL):** TeX Live (`sudo apt install texlive-full` recommended for astronomy packages).
+  * **macOS:** MacTeX.
+
+## Python Environment Setup
+1. Create the virtual environment: `python3 -m venv gootex_env`
+2. Activate it: `source gootex_env/bin/activate`
+3. Install Google API dependencies: `pip install -r requirements.txt`
+
+## Required LaTeX Classes and Packages
+The compilation engine relies on the following major document classes and packages being present in your TeX distribution. If using a minimal TeX Live install, ensure you add the `texlive-publishers` and `texlive-science` collections.
+
+* **Classes:** `aastex631.cls`, `revtex4-1.cls`
+* **Bibliography:** `natbib.sty`
+* **Graphics & Layout:** `graphicx.sty`, `epstopdf`, `longtable.sty`, `makecell.sty`, `multirow.sty`
+* **Math & Science:** `amsmath.sty`, `amssymb.sty`
+* **Utilities:** `hyperref.sty`, `xcolor.sty`, `lineno.sty`
+
+## Cross-Platform Execution Note
+If migrating from WSL to macOS or native Linux, update your bash alias in `~/.bashrc` or `~/.zshrc` to reflect the native Unix file path rather than the Windows `/mnt/c/...` mount.
+
+Example for macOS:
+`alias go='cd /Users/YourName/Documents/gooTeX_Project && source gootex_env/bin/activate'`

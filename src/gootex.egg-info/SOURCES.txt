@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/gootex/__init__.py
+src/gootex/cli.py
+src/gootex/gui.py
+src/gootex.egg-info/PKG-INFO
+src/gootex.egg-info/SOURCES.txt
+src/gootex.egg-info/dependency_links.txt
+src/gootex.egg-info/entry_points.txt
+src/gootex.egg-info/requires.txt
+src/gootex.egg-info/top_level.txt

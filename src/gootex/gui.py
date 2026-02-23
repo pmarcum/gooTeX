@@ -1,58 +1,69 @@
 import tkinter as tk
 from tkinter import scrolledtext
-import subprocess
 import threading
+import sys
+from gootex import cli
 
-def run_gui():
-    def run_compilation():
-        compile_btn.config(state=tk.DISABLED, text="Compiling...")
-        log_box.delete(1.0, tk.END)
-        log_box.insert(tk.END, "Initiating gooTeX compilation sequence...\n\n")
-        
-        def execute():
-            try:
-                # This now calls the registered system command instead of python3
-                process = subprocess.Popen(
-                    ["gootex"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True
-                )
-                
-                for line in process.stdout:
-                    log_box.insert(tk.END, line)
-                    log_box.see(tk.END)
-                
-                process.wait()
-                
-                if process.returncode == 0:
-                    log_box.insert(tk.END, "\n✅ Compilation Successful.")
-                else:
-                    log_box.insert(tk.END, "\n❌ Compilation Failed. Review logs above.")
-                    
-            except Exception as e:
-                log_box.insert(tk.END, f"\n❌ System Error: {e}\nMake sure you are in the project folder with config.json.")
-                
-            finally:
-                compile_btn.config(state=tk.NORMAL, text="Compile gooTeX")
+class RedirectText:
+    def __init__(self, text_widget):
+        self.output = text_widget
 
-        threading.Thread(target=execute, daemon=True).start()
+    def write(self, string):
+        self.output.insert(tk.END, string)
+        self.output.see(tk.END)
 
-    # --- Build the Window ---
+    def flush(self):
+        pass
+
+def run_task(task_func):
+    """Runs a CLI task in a separate thread to keep UI responsive."""
+    def wrapper():
+        try:
+            task_func()
+        except SystemExit as e:
+            if e.code != 0:
+                print("\n❌ Task Failed. Review logs above.")
+        except Exception as e:
+            print(f"\n⚠️ Unexpected Error: {str(e)}")
+    
+    threading.Thread(target=wrapper, daemon=True).start()
+
+def start_gui():
     root = tk.Tk()
-    root.title("gooTeX Control Panel")
-    root.geometry("600x400")
+    root.title("gooTeX Science Portal")
+    root.geometry("700x500")
 
-    instructions = tk.Label(root, text="Press Compile to pull source and generate PDF.", pady=10)
-    instructions.pack()
+    # Log Window
+    log_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, height=20)
+    log_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-    compile_btn = tk.Button(root, text="Compile gooTeX", command=run_compilation, height=2, width=25, bg="lightblue")
-    compile_btn.pack(pady=5)
+    # Redirect stdout and stderr to the log window
+    sys.stdout = RedirectText(log_area)
+    sys.stderr = RedirectText(log_area)
 
-    log_box = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=70, height=15, bg="black", fg="lightgreen")
-    log_box.pack(pady=10)
+    # Button Container (Frames the buttons side-by-side)
+    btn_frame = tk.Frame(root)
+    btn_frame.pack(pady=10)
+
+    # Button 1: Compile
+    compile_btn = tk.Button(
+        btn_frame, 
+        text="🚀 Sync & Compile PDF", 
+        command=lambda: run_task(cli.compile_locally),
+        bg="#4CAF50", fg="white", padx=10, pady=5
+    )
+    compile_btn.pack(side=tk.LEFT, padx=5)
+
+    # Button 2: Prepare Submission
+    submit_btn = tk.Button(
+        btn_frame, 
+        text="📦 Prepare Publisher Bundle", 
+        command=lambda: run_task(cli.prepare_submission),
+        bg="#2196F3", fg="white", padx=10, pady=5
+    )
+    submit_btn.pack(side=tk.LEFT, padx=5)
 
     root.mainloop()
 
-if __name__ == '__main__':
-    run_gui()
+if __name__ == "__main__":
+    start_gui()

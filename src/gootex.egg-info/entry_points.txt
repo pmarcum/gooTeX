@@ -1,0 +1,3 @@
+[console_scripts]
+gootex = gootex.cli:compile_locally
+gootex-ui = gootex.gui:run_gui
