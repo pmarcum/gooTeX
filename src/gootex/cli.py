@@ -174,8 +174,17 @@ def sync_assets(folder_id, local_path="."):
             else:
                 print(f"  ✅ {name} is up to date. Skipping.")
 
+
 def compile_locally():
     import datetime
+    import shutil
+    import sys
+    
+    # NEW: Safety check for pdflatex before starting
+    if shutil.which("pdflatex") is None:
+        print("❌ ERROR: 'pdflatex' not found. Compilation aborted.")
+        return
+
     print("🔄 Initializing asset sync...")
     sync_assets(PROJECT_FOLDER_ID)
     
@@ -236,8 +245,7 @@ def compile_locally():
         print("✅ Done!")
     else:
         print(f"❌ Compilation failed. Check {JOB_NAME}.log for details.")
-        import sys
-        sys.exit(1)  # Added to prevent the GUI from printing false success
+        sys.exit(1)  # Stop execution and signal failure to GUI
 
 def prepare_submission():
     """Flattens structure, prunes bib, and creates a tarball for publishers."""
