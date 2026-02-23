@@ -294,6 +294,39 @@ def prepare_submission():
         tar.add(sub_dir, arcname=os.path.basename(sub_dir))
     
     print(f"✅ Submission bundle ready: {tar_name}")
-        
-if __name__ == '__main__':
+
+def main():
+    import sys
+    
+    help_text = """
+gooTeX Science Portal
+---------------------
+COMMAND: gootex-cli
+
+Usage:
+  gootex-cli       : Sync assets and compile PDF.
+  gootex-cli -s    : Prepare submission bundle (.tar.gz).
+  gootex-cli -h    : Show this help menu.
+
+Prefer the window?
+  Run 'gootex-gui' to open the graphical interface.
+    """
+    
+    # Check if any flags were passed (e.g., -h or -s)
+    if len(sys.argv) > 1:
+        if sys.argv[1] in ["-h", "--help"]:
+            print(help_text)
+            return
+        elif sys.argv[1] == "-s":
+            prepare_submission()
+            return
+        else:
+            print(f"Unknown option: {sys.argv[1]}")
+            print("Use 'gootex-cli -h' for help.")
+            return
+
+    # Default action: If no flags are provided, run the standard compiler
     compile_locally()
+
+if __name__ == "__main__":
+    main()

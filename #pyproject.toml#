@@ -14,5 +14,5 @@ dependencies = [
 ]
 
 [project.scripts]
-gootex-cli = "gootex.cli:main"
-gootex-gui = "gootex.gui:run_gui"
+gootex-cli = "gootex.cli:compile_locally"
+gootex-ui = "gootex.gui:run_gui"
