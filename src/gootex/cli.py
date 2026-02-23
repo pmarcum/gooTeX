@@ -337,21 +337,24 @@ Prefer the window?
     compile_locally()
 
 def open_in_browser():
-    """Opens the linked Google Doc. Handles WSL/Linux/macOS cross-platform logic."""
-    url = f"https://docs.google.com/document/d/{DOCUMENT_ID}/edit"
-    print(f"🌐 Attempting to open document: {url}")
+    """Opens the Google Doc using whatever browser you've set as default in your OS."""
+    import subprocess
+    import platform
+    import webbrowser
 
-    # 1. WSL Check: Route to Windows Host
+    url = f"https://docs.google.com/document/d/{DOCUMENT_ID}/edit"
+    print(f"🌐 Opening in default browser: {url}")
+
+    # 1. WSL Check: This is the 'Handshake' fix for your specific error
     if "microsoft" in platform.uname().release.lower():
         try:
-            # Use PowerShell's Start-Process to bridge the WSL-Windows gap
+            # We use PowerShell to tell Windows: 'Open this URL with YOUR default browser'
             subprocess.run(["powershell.exe", "-NoProfile", "-Command", f'Start-Process "{url}"'], check=True)
             return
         except Exception as e:
-            print(f"⚠️ WSL Browser redirect failed: {e}")
+            print(f"⚠️ WSL bridge failed: {e}")
 
-    # 2. Native Check: macOS (Darwin) or Native Linux
-    # webbrowser.open is the standard Pythonic way for these OSs
+    # 2. Standard Logic: For macOS and native Linux
     webbrowser.open(url)
     
 if __name__ == "__main__":
