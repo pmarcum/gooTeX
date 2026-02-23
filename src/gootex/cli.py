@@ -337,25 +337,31 @@ Prefer the window?
     compile_locally()
 
 def open_in_browser():
-    """Opens the Google Doc using whatever browser you've set as default in your OS."""
+    """Forces the Google Doc to open in Chrome on WSL/Windows, otherwise uses OS default."""
     import subprocess
     import platform
     import webbrowser
 
     url = f"https://docs.google.com/document/d/{DOCUMENT_ID}/edit"
-    print(f"🌐 Opening in default browser: {url}")
+    print(f"🌐 Opening Google Doc: {url}")
 
-    # 1. WSL Check: This is the 'Handshake' fix for your specific error
+    # 1. WSL Case: Explicitly target Chrome on the Windows side
     if "microsoft" in platform.uname().release.lower():
+        # Common Windows Chrome installation paths
+        chrome_cmd = 'Start-Process "chrome.exe" -ArgumentList "{}"'.format(url)
         try:
-            # We use PowerShell to tell Windows: 'Open this URL with YOUR default browser'
+            # We try to launch 'chrome.exe' directly via PowerShell
+            subprocess.run(["powershell.exe", "-NoProfile", "-Command", chrome_cmd], 
+                           check=True, capture_output=True)
+            return
+        except Exception:
+            print("⚠️ Chrome.exe call failed; attempting standard Windows open...")
+            # Fallback to standard Windows 'Start' if chrome.exe isn't in the Windows PATH
             subprocess.run(["powershell.exe", "-NoProfile", "-Command", f'Start-Process "{url}"'], check=True)
             return
-        except Exception as e:
-            print(f"⚠️ WSL bridge failed: {e}")
 
-    # 2. Standard Logic: For macOS and native Linux
+    # 2. macOS and Native Linux Case
     webbrowser.open(url)
-    
+
 if __name__ == "__main__":
     main()
