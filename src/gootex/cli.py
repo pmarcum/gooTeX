@@ -328,5 +328,12 @@ Prefer the window?
     # Default action: If no flags are provided, run the standard compiler
     compile_locally()
 
+def open_in_browser():
+    """Opens the linked Google Doc in the default web browser."""
+    import webbrowser
+    url = f"https://docs.google.com/document/d/{DOCUMENT_ID}/edit"
+    print(f"🌐 Opening document in browser: {url}")
+    webbrowser.open(url)
+    
 if __name__ == "__main__":
     main()

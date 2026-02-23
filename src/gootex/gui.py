@@ -30,38 +30,41 @@ def run_task(task_func):
 
 def run_gui():
     root = tk.Tk()
-    root.title("gooTeX Science Portal")
-    root.geometry("700x500")
+    root.title("gooTeX Local Compiler") # Updated Title
+    root.geometry("700x550")
+
+    # Project Identifier Label
+    # This acts as the "Visual Handshake" to confirm the project
+    project_label = tk.Label(root, text=f"Active Project: {cli.JOB_NAME}", 
+                             font=("Helvetica", 10, "bold"), fg="#5f6368")
+    project_label.pack(pady=(10, 0))
 
     # Log Window
     log_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, height=20)
     log_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-    # Redirect stdout and stderr to the log window
+    # Redirect output
     sys.stdout = RedirectText(log_area)
     sys.stderr = RedirectText(log_area)
 
-    # Button Container (Frames the buttons side-by-side)
+    # Button Container
     btn_frame = tk.Frame(root)
     btn_frame.pack(pady=10)
 
     # Button 1: Compile
-    compile_btn = tk.Button(
-        btn_frame, 
-        text="🚀 Sync & Compile PDF", 
-        command=lambda: run_task(cli.compile_locally),
-        bg="#4CAF50", fg="white", padx=10, pady=5
-    )
-    compile_btn.pack(side=tk.LEFT, padx=5)
+    tk.Button(btn_frame, text="🚀 Sync & Compile", 
+              command=lambda: run_task(cli.compile_locally),
+              bg="#4CAF50", fg="white", width=15, pady=5).pack(side=tk.LEFT, padx=5)
 
     # Button 2: Prepare Submission
-    submit_btn = tk.Button(
-        btn_frame, 
-        text="📦 Prepare Publisher Bundle", 
-        command=lambda: run_task(cli.prepare_submission),
-        bg="#2196F3", fg="white", padx=10, pady=5
-    )
-    submit_btn.pack(side=tk.LEFT, padx=5)
+    tk.Button(btn_frame, text="📦 Prepare Bundle", 
+              command=lambda: run_task(cli.prepare_submission),
+              bg="#2196F3", fg="white", width=15, pady=5).pack(side=tk.LEFT, padx=5)
+
+    # Button 3: Open Browser
+    tk.Button(btn_frame, text="🔗 Open Google Doc", 
+              command=cli.open_in_browser, 
+              bg="#f1f3f4", fg="black", width=18, pady=5).pack(side=tk.LEFT, padx=5)
 
     root.mainloop()
 
