@@ -329,11 +329,25 @@ Prefer the window?
     compile_locally()
 
 def open_in_browser():
-    """Opens the linked Google Doc in the default web browser."""
+    """Opens the linked Google Doc. Handles WSL/Linux/macOS cross-platform logic."""
+    import subprocess
+    import os
     import webbrowser
-    url = f"https://docs.google.com/document/d/{DOCUMENT_ID}/edit"
-    print(f"🌐 Opening document in browser: {url}")
-    webbrowser.open(url)
     
+    url = f"https://docs.google.com/document/d/{DOCUMENT_ID}/edit"
+    print(f"🌐 Attempting to open document: {url}")
+
+    # Check for WSL (Windows Subsystem for Linux)
+    if "microsoft" in platform.uname().release.lower():
+        try:
+            # Pass the URL to Windows via PowerShell
+            subprocess.run(["powershell.exe", "Start-Process", f'"{url}"'], check=True)
+            return
+        except Exception as e:
+            print(f"⚠️ WSL Browser redirect failed: {e}")
+
+    # Standard approach for Native Linux and macOS
+    webbrowser.open(url)
+        
 if __name__ == "__main__":
     main()
