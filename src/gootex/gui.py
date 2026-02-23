@@ -28,7 +28,7 @@ def run_task(task_func):
     
     threading.Thread(target=wrapper, daemon=True).start()
 
-def start_gui():
+def run_gui():
     root = tk.Tk()
     root.title("gooTeX Science Portal")
     root.geometry("700x500")
@@ -66,4 +66,4 @@ def start_gui():
     root.mainloop()
 
 if __name__ == "__main__":
-    start_gui()
+    run_gui()
