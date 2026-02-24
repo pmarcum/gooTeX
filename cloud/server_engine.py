@@ -1,0 +1,380 @@
+from flask import Flask, request, jsonify
+from pyngrok import ngrok, conf
+from google.colab import userdata
+from google import genai
+import os, subprocess, json, re, time, shutil, datetime, traceback, logging, getpass, tempfile
+import concurrent.futures
+from IPython.display import clear_output, HTML, display
+import requests
+
+# We define these globally so they are accessible to both run_goo_server and the Flask routes.
+COMM_FILE = None
+ai_client = None
+ai_enabled = False
+
+# ==========================================
+# 🧠 UTILITIES (PARITY CHECKED)
+# ==========================================
+
+def display_team_notes():
+    """Fetches and displays the dynamic instructions from GitHub."""
+    notes_url = "https://raw.githubusercontent.com/pmarcum/gooTeX/main/cloud/team_notes.html"
+    try:
+        html_content = requests.get(notes_url, timeout=2).text
+        display(HTML(html_content))
+    except:
+        display(HTML("<div style='padding:10px; border:1px solid #ccc;'>⚠️ Latest notes unreachable.</div>"))
+
+def clean_latex(text):
+    if not text: return ""
+    MACROS = { r"\\apj": "ApJ", r"\\apjl": "ApJ Lett", r"\\aap": "A&A", r"\\mnras": "MNRAS", r"\\aj": "AJ", r"\\nat": "Nature" }
+    for mac, rep in MACROS.items(): text = re.sub(mac, rep, text, flags=re.IGNORECASE)
+    text = re.sub(r'\\[a-zA-Z]+\{(.*?)\}', r'\1', text)
+    return text.replace('{', '').replace('}', '').strip()
+
+def format_log_item(filename, line, type_label, source, message):
+    return f"{filename}:{line}:{type_label}:{source}:{message}"
+
+def parse_latex_log(log_text):
+    parsed_items = []
+    seen = set()
+    lines = log_text.split('\n')
+    i = 0
+    while i < len(lines):
+        line = lines[i].rstrip()
+        match = re.match(r"^(.*?\.[a-zA-Z0-9]+):(\d+):\s+(.*)$", line)
+        match_bang = re.match(r"^! (.*)$", line)
+        if match or match_bang:
+            if match:
+                filename, lineno, msg = match.groups()
+                type_lbl = "Error"
+            else:
+                filename, lineno, msg, type_lbl = "Global", "0", match_bang.group(1), "Global"
+            context = []
+            i += 1
+            while i < len(lines):
+                nxt = lines[i].rstrip()
+                if re.match(r"^(.*?\.[a-zA-Z0-9]+):(\d+):", nxt) or re.match(r"^! ", nxt): i -= 1; break
+                if not nxt.strip(): break
+                context.append(nxt)
+                i += 1
+            full_msg = msg
+            if context:
+                safe_html = "<br>".join([c.replace("<", "&lt;") for c in context[:5]])
+                full_msg += f"<div style='font-family:monospace; font-size:0.8em; color:#888; margin-top:3px;'>{safe_html}</div>"
+            item = format_log_item(filename, lineno, type_lbl, "Compiler", full_msg)
+            if item not in seen: parsed_items.append(item); seen.add(item)
+        else: i += 1
+    return "\n".join(parsed_items)
+
+def flatten_latex_project(base_dir, main_content):
+    def replace_input(match):
+        filename = match.group(1).strip()
+        if not filename.endswith('.tex'): filename += '.tex'
+        path = os.path.join(base_dir, filename)
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8', errors='ignore') as f: return flatten_latex_project(base_dir, f.read())
+            except: pass
+        return match.group(0)
+    return re.sub(r'\\(?:input|include)\{([^}]+)\}', replace_input, main_content)
+
+def get_page_count_live(work_dir, job_name):
+    log_path = os.path.join(work_dir, f"{job_name}.log")
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, 'rb') as f:
+                f.seek(0, 2); size = f.tell()
+                f.seek(max(0, size - 30000))
+                content = f.read().decode('utf-8', errors='ignore')
+                match = re.search(r'(?:Output written on .*? )?\((\d+)\s+pages?', content)
+                if match: return match.group(1)
+        except: pass
+    return "0"
+
+def inject_metadata(tex_content, user_email, doc_name):
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+    tex_content = tex_content.replace("[INSERT-TIMESTAMP]", now_str)
+    clean_user = re.sub(r'[^a-zA-Z0-9@.]', '', str(user_email))
+    clean_title = re.sub(r'[^a-zA-Z0-9 _-]', '', str(doc_name))
+    meta_cmd = f"\\pdfinfo{{ /Title ({clean_title}) /Author ({clean_user}) /Creator (GooTeX v45.1) }}"
+    if "\\documentclass" in tex_content: return tex_content.replace("\\documentclass", f"{meta_cmd}\n\\documentclass", 1)
+    return f"{meta_cmd}\n{tex_content}"
+
+def run_linter(tex_content):
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.tex', delete=True) as f:
+        f.write(tex_content); f.flush()
+        cmd = ["chktex", "-q", "-v0", "-nall", "-w1", "-w15", "-w16", "-w17", "-f", "%l:%d:%m\n", f.name]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            formatted = []
+            for line in res.stdout.split('\n'):
+                p = line.split(':')
+                if len(p) >= 3: formatted.append(format_log_item("Lint", p[0], "Warning", "Linter", p[2]))
+            return "\n".join(formatted)
+        except: return ""
+
+def run_image_optimizer(search_root):
+    tasks = []
+    for root, dirs, files in os.walk(search_root):
+        if "Compiled" in root: continue
+        for f in files:
+            if "_UNCOMPRESSED" in f: continue
+            if not f.lower().endswith(('.png', '.jpg', '.jpeg', '.tif')): continue
+            full_path = os.path.join(root, f)
+            try:
+                if os.path.getsize(full_path) > 1.5 * 1024 * 1024:
+                    tasks.append((root, f, full_path))
+            except: continue
+    def compress_worker(task_tuple):
+        root_path, filename, f_path = task_tuple
+        try:
+            name, ext = os.path.splitext(filename)
+            backup_path = os.path.join(root_path, f"{name}_UNCOMPRESSED{ext}")
+            if os.path.exists(backup_path): return None
+            os.rename(f_path, backup_path)
+            subprocess.run(f"magick convert \"{backup_path}\" -quality 82 -thumbnail '975x1350>' \"{f_path}\"", shell=True)
+            return filename
+        except: return None
+    results = []
+    if tasks:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = list(executor.map(compress_worker, tasks))
+    files_opt = [r for r in results if r]
+    return len(files_opt), files_opt
+
+def get_used_citations_from_aux(work_dir, doc_name):
+    used = set()
+    aux = os.path.join(work_dir, doc_name.replace('.tex', '.aux'))
+    if os.path.exists(aux):
+        try:
+            with open(aux, 'r') as f:
+                for m in re.findall(r'\\citation\{([^}]+)\}', f.read()):
+                    for k in m.split(','): used.add(k.strip())
+        except: pass
+    return used
+
+def generate_pruned_bib(work_dir, original_bib_path, used_keys, dest_drive_folder):
+    if not original_bib_path or not os.path.exists(original_bib_path): return None
+    try:
+        with open(original_bib_path, 'r', encoding='utf-8', errors='ignore') as f: content = f.read()
+        entries = re.split(r'\n@', '\n' + content)
+        pruned = ["% Generated by GooTeX Pruner\n"]
+        for entry in entries:
+            if not entry.strip(): continue
+            full = "@" + entry
+            match = re.match(r'@[a-zA-Z]+\s*\{\s*([^,]+),', full)
+            if match and match.group(1).strip() in used_keys: pruned.append(full.strip() + "\n\n")
+        p_name = f"{os.path.splitext(os.path.basename(original_bib_path))[0]}_PRUNED.bib"
+        out = os.path.join(dest_drive_folder, p_name)
+        with open(out, 'w', encoding='utf-8') as f: f.writelines(pruned)
+        return p_name
+    except: return None
+
+# ==========================================
+# 🚀 SERVER SETUP & HANDLER
+# ==========================================
+app = Flask(__name__)
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+@app.after_request
+def add_header(response):
+    response.headers['ngrok-skip-browser-warning'] = 'true'
+    return response
+
+@app.route("/", methods=["POST"])
+def handle_request():
+    global COMM_FILE, ai_client, ai_enabled
+    temp_dir = None
+    try:
+        data = request.json
+        task = data.get("task")
+        if task == 'status': return jsonify({'status':'success','ai_active':ai_enabled})
+        if task == 'ask_ai':
+            if not ai_enabled: return jsonify({'status': 'error', 'answer': "⚠️ API Key missing."})
+            error_msg = data.get('error_msg', 'Unknown Error')
+            context_snippet = (data.get('context') or "")[-1500:]
+            system_gate = ("ACT AS: Technical LaTeX Debugger. CONSTRAINTS: < 50 words. Bulleted shorthand only. NO filler. OUTPUT: 1. Cause. 2. Fix. 3. Warning.")
+            try:
+                response = ai_client.models.generate_content(model='gemini-2.0-flash', contents=f"{system_gate}\n\nERROR:\n{error_msg}\n\nCONTEXT:\n{context_snippet}")
+                return jsonify({'status':'success', 'answer': response.text})
+            except Exception as e:
+                return jsonify({'status': 'error', 'answer': f"AI Error: {str(e)}"}), 200
+
+        comm_dir = os.path.dirname(COMM_FILE)
+        project_root = os.path.dirname(comm_dir)
+        raw_path = data.get("full_path", "").strip()
+        full_path = raw_path if raw_path.startswith("/") else os.path.join(project_root, raw_path.replace("ROOT:/",""))
+        if not full_path.endswith(".tex"): full_path += ".tex"
+        drive_doc_dir = os.path.dirname(full_path)
+
+        if task == "optimize":
+            count, files = run_image_optimizer(project_root)
+            return jsonify({ "status": "success", "log": f"✅ Compressed {count} images.", "files": files })
+
+        temp_dir = tempfile.mkdtemp(prefix="gootex_", dir="/dev/shm")
+        file_name = os.path.basename(full_path)
+        job_name = os.path.splitext(file_name)[0]
+        raw_text = data.get("main_text", "")
+        if not raw_text: raw_text = data.get("raw_text", "")
+        if task == "compile": raw_text = inject_metadata(raw_text, data.get("user"), file_name)
+
+        with open(os.path.join(temp_dir, file_name), "w") as f: f.write(raw_text)
+        sub_docs = data.get("sub_docs", [])
+        if isinstance(sub_docs, list):
+            for doc_obj in sub_docs:
+                d_name = doc_obj.get("name")
+                d_content = doc_obj.get("content")
+                if d_name and d_content:
+                    d_path = os.path.join(temp_dir, d_name)
+                    os.makedirs(os.path.dirname(d_path), exist_ok=True)
+                    with open(d_path, "w") as f: f.write(d_content)
+
+        env = os.environ.copy()
+        env['TEXINPUTS'] = f".:{drive_doc_dir}:{project_root}:"
+        env['BIBINPUTS'] = f".:{drive_doc_dir}:{project_root}:"
+
+        def run_wc_task():
+            wc = "0"
+            try:
+                with open(os.path.join(temp_dir, file_name), 'r') as f: flat = flatten_latex_project(temp_dir, f.read())
+                wc_file = os.path.join(temp_dir, "wc.tex")
+                with open(wc_file, 'w') as f: f.write(flat)
+                out = subprocess.getoutput(f"texcount -sum -1 \"{wc_file}\" 2>/dev/null").strip()
+                match = re.search(r'^(\d+)', out)
+                if match: wc = match.group(1)
+            except: pass
+            return wc
+
+        lint_log, wc = "", "0"
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_lint = executor.submit(run_linter, raw_text)
+            future_wc = executor.submit(run_wc_task)
+            cmd = ["pdflatex", "-synctex=0", "-recorder", "-file-line-error", "-halt-on-error", "-interaction=nonstopmode", f"-jobname={job_name}"]
+            if task in ["draft", "wordcount", "zip"]: cmd.append("-draftmode")
+            cmd.append(file_name)
+            sub = subprocess.run(cmd, cwd=temp_dir, capture_output=True, text=True, env=env)
+            if task == "compile" and os.path.exists(os.path.join(temp_dir, job_name+".aux")):
+                subprocess.run(["bibtex", job_name], cwd=temp_dir, capture_output=True, env=env)
+                subprocess.run(cmd, cwd=temp_dir, capture_output=True, env=env)
+                sub = subprocess.run(cmd, cwd=temp_dir, capture_output=True, text=True, env=env)
+            lint_log, wc = future_lint.result(), future_wc.result()
+
+        compiler_log = parse_latex_log(sub.stdout)
+        if task == "zip":
+            used_keys = get_used_citations_from_aux(temp_dir, file_name)
+            active_bib = next((os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith(".bib")), None)
+            try:
+                staging_dir = os.path.join(temp_dir, "submission_flattened")
+                os.makedirs(staging_dir, exist_ok=True)
+                fls_path = os.path.join(temp_dir, f"{job_name}.fls")
+                if os.path.exists(fls_path):
+                    with open(fls_path, 'r') as f:
+                        for line in f:
+                            if line.startswith("INPUT "):
+                                path = line.split("INPUT ")[1].strip()
+                                if os.path.exists(path) and (temp_dir in os.path.abspath(path) or project_root in os.path.abspath(path)):
+                                    if not any(path.endswith(e) for e in ['.aux', '.out', '.fls', '.log']):
+                                        shutil.copy2(path, os.path.join(staging_dir, os.path.basename(path)))
+                if active_bib:
+                    p_bib = generate_pruned_bib(temp_dir, active_bib, used_keys, staging_dir)
+                    if p_bib: os.rename(os.path.join(staging_dir, p_bib), os.path.join(staging_dir, "export.bib"))
+                def scrub_tex(content):
+                    content = re.sub(r"(\\(?:input|include|includegraphics)(?:\[.*?\])?\{)(?:.*/)([^/]+\})", r"\1\2", content)
+                    return re.sub(r"\\bibliography\{[^}]+\}", r"\\bibliography{export}", content)
+                with open(os.path.join(temp_dir, file_name), 'r') as f: main_content = f.read()
+                with open(os.path.join(staging_dir, file_name), 'w') as f: f.write(scrub_tex(main_content))
+                zip_name = f"{job_name}_SUBMISSION.zip"
+                shutil.make_archive(os.path.join(temp_dir, job_name + "_SUBMISSION"), 'zip', staging_dir)
+                dest = os.path.join(drive_doc_dir, "Compiled")
+                os.makedirs(dest, exist_ok=True)
+                shutil.copy2(os.path.join(temp_dir, zip_name), os.path.join(dest, zip_name))
+                return jsonify({"status":"success", "log": "Zip created", "zip_name": zip_name}), 200
+            except Exception as e: return jsonify({"status":"error", "log": str(e)}), 200
+
+        if task == "compile":
+            dest = os.path.join(drive_doc_dir, "Compiled")
+            os.makedirs(dest, exist_ok=True)
+            for ext in ['.pdf', '.log']:
+                src = os.path.join(temp_dir, job_name+ext)
+                if os.path.exists(src): shutil.copy2(src, os.path.join(dest, job_name+ext))
+
+        return jsonify({ "status": "success" if sub.returncode==0 else "error", "log": (compiler_log + "\n" + lint_log).strip(), "word_count": wc, "page_count": get_page_count_live(temp_dir, job_name) }), 200
+    except: return jsonify({"status":"error","log":traceback.format_exc()}), 500
+    finally:
+        if temp_dir: shutil.rmtree(temp_dir)
+
+# ==========================================
+# 🤝 EXECUTION LOGIC
+# ==========================================
+
+def run_goo_server():
+    global COMM_FILE, ai_client, ai_enabled
+    
+    # 💀 ZOMBIE KILLER
+    try:
+        ngrok.kill()
+        subprocess.run(["pkill", "ngrok"], check=False)
+        time.sleep(2)
+    except: pass
+
+    # 🔐 SMART KEY LOADER
+    def get_secret_or_prompt(key_name, prompt_text):
+        try: return userdata.get(key_name)
+        except: return getpass.getpass(prompt_text)
+
+    GEMINI_API_KEY = get_secret_or_prompt('GEMINI_API_KEY', '👉 Paste Gemini Key: ')
+    NGROK_TOKEN = get_secret_or_prompt('NGROK_TOKEN', '👉 Paste Ngrok Token: ')
+    if NGROK_TOKEN: ngrok.set_auth_token(NGROK_TOKEN)
+    ai_client = genai.Client(api_key=GEMINI_API_KEY, http_options={'api_version': 'v1'}) if GEMINI_API_KEY else None
+    ai_enabled = (ai_client is not None)
+
+    # 🕵️ AUTO-LOCATE
+    print("🕵️  Auto-locating connection file...")
+    cmd = "find /content/drive/MyDrive -maxdepth 5 -name gootex_doc2colab_communication.json -not -path '*/.Trash/*'"
+    found_paths = subprocess.getoutput(cmd).strip().split('\n')
+    candidates = [p for p in found_paths if p.strip()]
+
+    if len(candidates) == 1:
+        COMM_FILE = candidates[0]
+        print(f"✅ Found Project: {COMM_FILE}")
+    elif len(candidates) > 1:
+        print("\n⚠️  MULTIPLE PROJECTS DETECTED")
+        for i, path in enumerate(candidates):
+            print(f"   [{i+1}] ...{os.path.dirname(path).replace('/content/drive/MyDrive', '')}")
+        idx = int(input(f"👉 Enter number (1-{len(candidates)}): ")) - 1
+        COMM_FILE = candidates[idx]
+    else:
+        print("❌ ERROR: Connection file not found!")
+        return
+
+    # 🤝 RELIABLE HANDSHAKE
+    try:
+        print("🚀  Initializing Ngrok Tunnel...")
+        conf.get_default().region = "us"
+        public_url = None
+        for attempt in range(1, 5):
+            try:
+                public_url = ngrok.connect(5000).public_url
+                break
+            except Exception as e:
+                print(f"⚠️  Tunnel Busy (Attempt {attempt}/4). Retrying...")
+                ngrok.kill(); time.sleep(5)
+
+        if public_url:
+            reg = {}
+            if os.path.exists(COMM_FILE):
+                with open(COMM_FILE, "r") as f: reg = json.load(f)
+            reg["gootexCompiler_url"] = public_url
+            with open(COMM_FILE, "w") as f: json.dump(reg, f, indent=4)
+            
+            clear_output()
+            display_team_notes()
+            hud_html = f"""<div style='padding: 20px; border: 2px solid #2e7d32; border-radius: 10px; background-color: #f1f8e9; font-family: sans-serif;'><h2 style='color: #2e7d32; margin-top: 0;'>🟢 GooTeX Server is ONLINE</h2><p><b>Public Link:</b> <a href='{public_url}' target='_blank'>{public_url}</a></p><p><b>Project:</b> <code>{os.path.basename(os.path.dirname(os.path.dirname(COMM_FILE)))}</code></p><hr style='border: 0; border-top: 1px solid #c8e6c9;'><p style='font-size: 0.9em; color: #555;'>The server is listening. Keep this tab open.</p></div>"""
+            display(HTML(hud_html))
+    except Exception as e: print(f"❌ Handshake Failed: {e}")
+
+    app.run(port=5000)
+
+if __name__ == "__main__":
+    run_goo_server()

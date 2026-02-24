@@ -1,0 +1,77 @@
+import os, subprocess, time, shutil, json
+from google.colab import drive, userdata
+from IPython.display import clear_output
+
+# --- 1. Mount Drive ---
+print("📦 Step 1: Mounting Google Drive...")
+if not os.path.exists("/content/drive"): drive.mount("/content/drive")
+
+# --- 2. Install Python Deps ---
+print("🐍 Step 2: Installing Python Dependencies...")
+os.system("pip install pyngrok flask google-genai --quiet")
+
+# --- 3. Install LaTeX (Heavy Lift) ---
+print("📥 Step 3: Installing Stable LaTeX & ImageMagick (This takes ~90s)...")
+!apt-get update --fix-missing -qq > /dev/null 2>&1
+!apt-get install -y bc \
+    texlive-latex-recommended \
+    texlive-latex-extra \
+    texlive-fonts-recommended \
+    texlive-fonts-extra \
+    texlive-pictures \
+    texlive-science \
+    texlive-bibtex-extra \
+    texlive-extra-utils \
+    texlive-publishers \
+    chktex \
+    imagemagick -qq > /dev/null 2>&1
+
+print("🔭 Installing Astronomy Publisher Templates...")
+!wget -q https://journals.aas.org/wp-content/uploads/2021/01/aastex631.cls -O /usr/share/texlive/texmf-dist/tex/latex/base/aastex631.cls
+!wget -q https://mirror.ctan.org/macros/latex/contrib/mnras/mnras.cls -O /usr/share/texlive/texmf-dist/tex/latex/base/mnras.cls
+!wget -q https://input.edpsciences.org/latex/aa.cls -O /usr/share/texlive/texmf-dist/tex/latex/base/aa.cls
+!wget -q https://iopscience.iop.org/full/10.3847/1538-4357/aabc50/media/emulateapj.cls -O /usr/share/texlive/texmf-dist/tex/latex/base/emulateapj.cls
+
+!texhash > /dev/null 2>&1
+
+# --- CLEANING THE BRAIN (Preserves Parity with v31) ---
+for var in ["TEXMFCNF", "TEXMFDIST", "TEXMFSYSVAR", "TEXMFSYSCONFIG", "TEXMF"]:
+    if var in os.environ: del os.environ[var]
+!fmtutil-sys --all > /dev/null 2>&1
+
+# Fix Magick Alias
+if not os.path.exists("/usr/local/bin/magick"):
+    !ln -s /usr/bin/convert /usr/local/bin/magick
+
+# --- 4. Configuration ---
+print("🔐 Step 4: Configuring System...")
+try:
+    token = str(userdata.get('NGROK_TOKEN')).strip()
+    import pyngrok.conf
+    pyngrok.conf.get_default().auth_token = token
+except: pass
+
+# Apply Timezone from Cell 0
+os.environ['TZ'] = TIMEZONE; time.tzset()
+
+# --- 5. Clean & Report ---
+clear_output(wait=True)
+
+print(f"🛰️  Research Environment: READY (v37.1) | 🕒 {time.strftime('%H:%M:%S')}")
+print(f"✅ LaTeX: {subprocess.getoutput('pdflatex --version').splitlines()[0]}")
+print(f"✅ Magick: Installed and Linked")
+print(f"✅ AAS6.3.1: Installed")
+#print(f"✅ Notebook Path: {GOOTEX_BASE}")
+print("   (Settings loaded from Cell 0)")
+
+# Pause to let the user read the success report
+time.sleep(2)
+clear_output(wait=True)
+
+# THE FINAL SIMPLE MESSAGE
+print(f"✅ SYSTEM IS READY.  RUN CELL 2")
+!pip install flask pyngrok google-genai > /dev/null 2>&1
+!apt-get update && apt-get install -y poppler-utils texcount pandoc imagemagick > /dev/null 2>&1
+from IPython.display import clear_output
+clear_output()
+print("✅ Libraries installed. Starting GooTeX Server...")
