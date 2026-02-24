@@ -23,7 +23,7 @@ collaborators to have different local paths.
 Create a unique `config.json` inside the root directory of **each** paper's local folder. This approach allows different projects to coexist without interference.
 
 **Example Local Structure:**
-\`\`\`text
+```text
 ~/Research/
 ├── Project_Alpha/
 │   ├── config.json         <-- Points to Doc ID "A"
@@ -31,8 +31,6 @@ Create a unique `config.json` inside the root directory of **each** paper's loca
 └── Project_Beta/
     ├── config.json         <-- Points to Doc ID "B"
     └── service_account.json
-\`\`\`
 
----
-⚠️ WARNING: NEVER commit your 'config.json' to GitHub. 
+⚠️ WARNING: NEVER commit your 'config.json' to GitHub.
 This file contains private IDs that link directly to your personal Google Drive files.
