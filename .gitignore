@@ -14,3 +14,20 @@ config.json
 # Build Artifacts
 src/*.egg-info/*~
 build/
+
+# LaTeX Build Artifacts
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.pdf
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.fdb_latexmk
+*~
+
+# Project Communication (Avoid syncing local URLs to GitHub)
+gootex_doc2colab_communication.json
