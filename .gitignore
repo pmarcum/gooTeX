@@ -42,3 +42,12 @@ gootex_doc2colab_communication.json
 FIGURES/
 Compiled/
 _minted-*/
+
+# Editor temporary/autosave files
+# Emacs
+#*#
+.#*
+*~
+# Vim
+*.swp
+*.swo
