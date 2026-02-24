@@ -31,3 +31,9 @@ build/
 
 # Project Communication (Avoid syncing local URLs to GitHub)
 gootex_doc2colab_communication.json
+
+# Block all local test documents and libraries
+*.tex
+*.bib
+*.sty
+*.cls
