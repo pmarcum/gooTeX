@@ -37,3 +37,8 @@ gootex_doc2colab_communication.json
 *.bib
 *.sty
 *.cls
+
+# Block entire directories
+FIGURES/
+Compiled/
+_minted-*/
