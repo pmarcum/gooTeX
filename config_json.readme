@@ -17,7 +17,7 @@ collaborators to have different local paths.
     * **Note:** This name does NOT need to match the Google Doc title.
     * **Constraint:** Do NOT use spaces or special characters.
     * **Role:** This name determines the folder name used for local builds and 
-      identifies the project in the local server logs generated on your computer only.
+      identifies the project in the local server logs generated on your computer only. You can use whatever identifier that you wish.
 
 ### 👥 For Teams & Multiple Projects:
 Create a unique `config.json` inside the root directory of **each** paper's local folder. This approach allows different projects to coexist without interference.
