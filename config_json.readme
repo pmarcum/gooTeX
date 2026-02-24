@@ -1,0 +1,25 @@
+# ⚙️ config.json (LOCAL PROJECT CONFIGURATION)
+
+The file 'config.json' is required to tell the GooTeX local compiler which 
+specific project to work on. This file is ignored by Git to allow different 
+collaborators to have different local paths.
+
+### 🛠️ Setup Instructions:
+1. Copy 'config.example.json' and rename the copy to 'config.json'.
+2. Fill in the following fields:
+
+* **document_id:** The long string of characters in the URL of your Google Doc.
+    (e.g., https://docs.google.com/document/d/YOUR_ID_HERE/edit)
+* **drive_folder_id:** The ID of the Google Drive folder where your project lives.
+    (Open the folder in a browser; the ID is the string at the end of the URL).
+* **figures_folder_id:** (Optional) The ID of a specific subfolder for images.
+* **project_name:** A short, one-word handle for your paper (no spaces).
+
+### 👥 For Teams:
+Each co-author must create their own 'config.json'. This allows Author A 
+to work on a Linux machine with one path, while Author B works on a Mac 
+with another, without interfering with the shared code on GitHub.
+
+---
+⚠️ WARNING: NEVER commit your 'config.json' to GitHub. 
+It contains private IDs that link directly to your personal Google Drive files.
