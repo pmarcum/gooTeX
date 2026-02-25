@@ -207,7 +207,21 @@ def run_goo_server():
     print(f"🏠 Project Root: {project_root}")
         
     public_url = ngrok.connect(5000).public_url
-    print(f"🟢 Server Online: {public_url}")
+    # --- RESTORED BEAUTIFUL HUD ---
+    from IPython.display import clear_output, HTML, display
+    clear_output()
+    
+    hud_html = f"""
+    <div style='padding: 20px; border: 2px solid #2e7d32; border-radius: 10px; background-color: #f1f8e9; font-family: sans-serif;'>
+        <h2 style='color: #2e7d32; margin-top: 0;'>🟢 GooTeX Server is ONLINE</h2>
+        <p><b>Public Link:</b> <a href='{public_url}' target='_blank'>{public_url}</a></p>
+        <p><b>Project Root:</b> <code>{project_root}</code></p>
+        <hr style='border: 0; border-top: 1px solid #c8e6c9;'>
+        <p style='font-size: 0.9em; color: #555;'>The server is listening. Keep this tab open while you write.</p>
+    </div>
+    """
+    display(HTML(hud_html))
+    # ------------------------------
     
     # Update COMM_FILE
     with open(COMM_FILE, "r") as f: reg = json.load(f)
