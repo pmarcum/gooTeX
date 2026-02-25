@@ -193,11 +193,25 @@ def handle_request():
         if task == 'ask_ai':
             if not ai_enabled: return jsonify({'status': 'error', 'answer': "⚠️ API Key missing."})
             error_msg = data.get('error_msg', 'Unknown Error')
-            context_snippet = (data.get('context') or "")[-1500:]
-            system_gate = ("ACT AS: Technical LaTeX Debugger. CONSTRAINTS: < 50 words. Bulleted shorthand only. NO filler. OUTPUT: 1. Cause. 2. Fix. 3. Warning.")
+            context_snippet = (data.get('context') or "")[-2500:] # Increased slightly for better context
+            
+            # --- UPDATED SYSTEM GATE ---
+            system_gate = (
+                "ACT AS: Expert Astrophysics LaTeX Editor. "
+                "CONTEXT: Troubleshooting AASTeX631/RevTeX papers. "
+                "DIRECTIVES: Identify specific missing packages or syntax errors. "
+                "NO generic advice like 're-encode file'. < 60 words. Bulleted shorthand."
+            )
+            
             try:
-                response = ai_client.models.generate_content(model='gemini-2.0-flash', contents=f"{system_gate}\n\nERROR:\n{error_msg}\n\nCONTEXT:\n{context_snippet}")
+                # Combining the instructions more clearly for the model
+                user_content = f"LOG:\n{error_msg}\n\nLATEX SOURCE:\n{context_snippet}"
+                response = ai_client.models.generate_content(
+                    model='gemini-2.0-flash', 
+                    contents=f"{system_gate}\n\n{user_content}"
+                )
                 return jsonify({'status':'success', 'answer': response.text})
+            
             except Exception as e:
                 return jsonify({'status': 'error', 'answer': f"AI Error: {str(e)}"}), 200
 
