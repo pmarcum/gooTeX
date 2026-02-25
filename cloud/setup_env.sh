@@ -1,6 +1,7 @@
 #!/bin/bash
 # GooTeX Cloud Environment Provisioner
 # Target: Parity with Colab Master Initialization v37.1 + v45.1
+set -e  # <--- CRITICAL: Exit immediately if any command fails
 
 echo "📦 Step 1: Mounting Google Drive (Handled by Python Bootstrap)..."
 # Note: actual drive.mount is handled in the Colab cell to allow user interaction.
@@ -9,7 +10,7 @@ echo "🐍 Step 2: Installing Python Dependencies..."
 pip install pyngrok flask google-genai requests --quiet
 
 echo "📥 Step 3: Installing Stable LaTeX & Infrastructure (takes ~90s)..."
-apt-get update --fix-missing -qq > /dev/null 2>&1
+apt-get update --fix-missing -qq
 apt-get install -y bc \
     texlive-latex-recommended \
     texlive-latex-extra \
@@ -24,7 +25,13 @@ apt-get install -y bc \
     poppler-utils \
     texcount \
     pandoc \
-    imagemagick -qq > /dev/null 2>&1
+    imagemagick -qq
+
+# Verification step
+if ! command -v pdflatex &> /dev/null; then
+    echo "❌ FATAL: pdflatex failed to install!"
+    exit 1
+fi
 
 echo "🔭 Step 4: Installing Astronomy Publisher Templates..."
 # Ensure local TeX tree exists
