@@ -158,6 +158,18 @@ def handle_request():
     finally:
         if temp_dir: shutil.rmtree(temp_dir)
 
+        def display_team_notes():
+    """Fetches and displays the dynamic dark-mode console from GitHub."""
+    notes_url = "https://raw.githubusercontent.com/pmarcum/gooTeX/main/cloud/team_notes.html"
+    import requests
+    from IPython.display import HTML, display
+    try:
+        # This fetches the dark-background box you had before
+        html_content = requests.get(notes_url, timeout=2).text
+        display(HTML(html_content))
+    except:
+        display(HTML("<div style='padding:10px; border:1px solid #ccc; background:#333; color:white;'>⚠️ Team notes unreachable.</div>"))
+        
 def run_goo_server():
     global COMM_FILE, ai_client, ai_enabled
     # 💀 ZOMBIE KILLER (Add these 6 lines here)
@@ -207,9 +219,12 @@ def run_goo_server():
     print(f"🏠 Project Root: {project_root}")
         
     public_url = ngrok.connect(5000).public_url
-    # --- RESTORED BEAUTIFUL HUD ---
+
+
     from IPython.display import clear_output, HTML, display
     clear_output()
+
+    display_team_notes()
     
     hud_html = f"""
     <div style='padding: 20px; border: 2px solid #2e7d32; border-radius: 10px; background-color: #f1f8e9; font-family: sans-serif;'>
