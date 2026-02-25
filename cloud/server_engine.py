@@ -177,31 +177,35 @@ def run_goo_server():
     # 🕵️ ROBUST AUTO-LOCATE
     print("🕵️  Auto-locating connection file...")
     # Added -not -path '*/.Trash/*' to ignore deleted files
-    cmd = "find /content/drive/MyDrive -maxdepth 5 -name gootex_doc2colab_communication.json -not -path '*/.Trash/*'"
+    cmd = "find /content/drive/MyDrive -maxdepth 7 -name gootex_doc2colab_communication.json -not -path '*/.Trash/*'"
     found_paths = subprocess.getoutput(cmd).strip().split('\n')
     candidates = [p for p in found_paths if p.strip()]
 
     if not candidates or not candidates[0]:
-        print("❌ ERROR: Connection file not found! Check your Drive.")
+        print("❌ ERROR: gootex_doc2colab_communication.json file not found! Check your Drive.")
         return
-    
+
+    # Selection Logic
     if len(candidates) == 1:
         COMM_FILE = candidates[0]
-        print(f"✅ Found Project: {COMM_FILE}")
     else:
-        print("\n⚠️  MULTIPLE PROJECTS DETECTED")
+        print("\n⚠️  MULTIPLE PROJECTS DETECTED:")
         for i, path in enumerate(candidates):
-            # Show the folder name to help you choose
-            folder = os.path.basename(os.path.dirname(path))
-            print(f"   [{i+1}] Project Folder: {folder}")
+            print(f"   [{i+1}] ...{path.split('/')[-3]}/{path.split('/')[-2]}")
         
-        idx = int(input(f"👉 Enter number (1-{len(candidates)}): ")) - 1
-        COMM_FILE = candidates[idx]
-        
-    # Auto-locate COMM_FILE
-    cmd = "find /content/drive/MyDrive -maxdepth 5 -name gootex_doc2colab_communication.json"
-    COMM_FILE = subprocess.getoutput(cmd).strip().split('\n')[0]
+        # This will pause the cell and show a text box in Colab
+        choice = input("👉 Enter number (1-{}): ".format(len(candidates)))
+        COMM_FILE = candidates[int(choice)-1]
     
+    # 🌳 FIND NEAREST COMMON ANCESTOR
+    # We move up from: .../research_group/GOOTEX_BASE/comm.json
+    # Goal: research_group
+    comm_dir = os.path.dirname(COMM_FILE)        # /.../GOOTEX_BASE
+    project_root = os.path.dirname(comm_dir)     # /.../research_group
+    
+    print(f"✅ Found Project: {os.path.basename(comm_dir)}")
+    print(f"🏠 Project Root: {project_root}")
+        
     public_url = ngrok.connect(5000).public_url
     print(f"🟢 Server Online: {public_url}")
     
