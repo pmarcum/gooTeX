@@ -158,7 +158,7 @@ def handle_request():
     finally:
         if temp_dir: shutil.rmtree(temp_dir)
 
-        def display_team_notes():
+def display_team_notes():
     """Fetches and displays the dynamic dark-mode console from GitHub."""
     notes_url = "https://raw.githubusercontent.com/pmarcum/gooTeX/main/cloud/team_notes.html"
     import requests
