@@ -327,7 +327,7 @@ def get_secret_or_prompt(key_name, prompt_text):
 # 🏁 SERVER ENTRY POINT
 # ==========================================
 def run_goo_server():
-    global COMM_FILE, ai_client, ai_enabled
+    global COMM_FILE, ai_client, ai_enabled, GEMINI_API_KEY
 
     # ==========================================
     # 💀 ZOMBIE KILLER

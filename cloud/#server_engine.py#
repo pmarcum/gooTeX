@@ -168,8 +168,7 @@ def generate_pruned_bib(work_dir, original_bib_path, used_keys, dest_drive_folde
 # ==========================================
 # 🚀 MAIN HANDLER
 # ==========================================
-@app.route
-("/", methods=["POST"])
+@app.route("/", methods=["POST"])
 def handle_request():
     temp_dir = None
     try:
@@ -296,6 +295,13 @@ def handle_request():
     finally:
         if temp_dir: shutil.rmtree(temp_dir)
 
+@app.route("/get_key", methods=["POST"])
+def get_key():
+    try:
+        return jsonify({"status": "success", "geminiApiKey": GEMINI_API_KEY or ""})
+    except:
+        return jsonify({"status": "error", "geminiApiKey": ""})
+    
 # ==========================================
 # 🖥️ DISPLAY HELPERS
 # ==========================================
@@ -321,7 +327,7 @@ def get_secret_or_prompt(key_name, prompt_text):
 # 🏁 SERVER ENTRY POINT
 # ==========================================
 def run_goo_server():
-    global COMM_FILE, ai_client, ai_enabled
+    global COMM_FILE, ai_client, ai_enabled,
 
     # ==========================================
     # 💀 ZOMBIE KILLER
