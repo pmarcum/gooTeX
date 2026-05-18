@@ -1,6 +1,6 @@
 {
   "gootex_core_version": 1,
-  "gootex_thin_client_version": 200,
+  "gootex_thin_client_version": 1,
   "gootex_formatter_version": 1,
   "gootex_core_notes": "Go to Extensions → Libraries → update GooTeX_Core to the latest version",
   "gootex_thin_client_notes": "Replace Code.gs and Config.gs in your thin client with the latest version from GitHub",
