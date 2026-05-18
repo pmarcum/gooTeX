@@ -1,5 +1,5 @@
 {
-  "gootex_core_version": 1,
+  "gootex_core_version": 2,
   "gootex_thin_client_version": 1,
   "gootex_formatter_version": 1,
   "gootex_core_notes": "Go to Extensions → Libraries → update GooTeX_Core to the latest version",
