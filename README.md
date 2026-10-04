@@ -31,6 +31,19 @@ If you are the designated **Server Host** for your research group, you must init
 2. Open any blank Google Doc inside this folder, wait for the custom menu, and click **GooTeX > 🔧 Server Setup > 📂 Initialize Drive Folder**. Accept the permissions. This creates the user-access spreadsheet and displays its ID in an alert — copy that ID into `GOOTEX_ACCESS_SHEET_ID` in `Config.gs` before proceeding.
 3. Ensure your cloud server is running and reachable, then set its endpoint URL in `Config.gs`. Any persistent server that can run a LaTeX toolchain and respond to HTTP requests will work — the specific platform (VM, VPS, container, etc.) is up to you.
 
+#### Server Requirements
+Your compile server needs a complete LaTeX toolchain plus a few supporting tools. The repository includes **`cloud/provision_server.sh`**, which installs everything listed below on a fresh Debian/Ubuntu host — run it once:
+```bash
+bash cloud/provision_server.sh
+```
+What it installs:
+* **Python packages:** `flask`, `requests`, `google-genai` (keep these in sync with the imports at the top of `cloud/server_engine.py`).
+* **LaTeX (TeX Live):** `texlive-latex-recommended`, `texlive-latex-extra`, `texlive-fonts-recommended`, `texlive-fonts-extra`, `texlive-pictures`, `texlive-science`, `texlive-bibtex-extra`, `texlive-extra-utils`, `texlive-publishers`.
+* **Tooling:** `chktex` (linting), `imagemagick` (figure conversion), `poppler-utils` (PDF utilities), `texcount` (word counts), `pandoc`, `bc`.
+* **Astronomy document classes:** `aastex631.cls`, `mnras.cls`, `aa.cls`, and `emulateapj.cls`, fetched from their publishers into the TeX tree. Trim or extend this list in the script to match your field.
+
+Once provisioned, run `cloud/server_engine.py` as a persistent service (e.g. a `systemd` unit that restarts on failure) reachable over HTTP(S), then put that URL in `GOOTEX_SERVER_URL` in `Config.gs`.
+
 ---
 
 ### Phase 2: Starting or Joining a Paper (Authors)
