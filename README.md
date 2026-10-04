@@ -45,3 +45,13 @@ Once the Server Host has initialized the group's Drive folder, authors do not ne
 **If you are JOINING an existing paper:**
 1. Check your email for the collaboration invitation. It will contain a link to the Google Doc.
 2. Open the Doc and start writing. All compilation and sidebar features run server-side under the Host's credentials — no special Drive setup is required on your end.
+
+---
+
+### Organizing Your Project Files
+<span style="color:green; font-weight:bold;">gooTeX</span> locates your figures, `.bib` file, local `.sty`/`.cls` files, and any `\input`/`\include`'d `.tex` files automatically. Follow these rules for where files can live and how to reference them:
+
+* **Subfolders are supported.** You may organize supporting files into any nested subfolder structure *beneath the folder that contains your Google Doc*. <span style="color:green; font-weight:bold;">gooTeX</span> searches that folder and all of its subfolders (to any depth) by filename. The `Compiled/` folder and any folder whose name begins with `.` are skipped.
+* **Reference files by their bare filename — no path.** Even if a file physically lives in a subfolder, cite it by name only: write `\includegraphics{galaxy.png}`, **not** `\includegraphics{figures/galaxy.png}`. The compiler receives a flattened set of files, so a path prefix will cause it to fail to find the file.
+* **Keep filenames unique across the whole project.** Because lookup is by filename alone, two files with the same name in different subfolders will collide, and one will silently shadow the other. Give every figure, `.tex`, and `.bib` file a distinct name.
+* **Files must live within the project folder's tree.** Files in a sibling or parent folder (outside the Doc's folder) will not be found. If you must reference a file stored elsewhere in Drive, place a **shortcut** to that file (named to match the referenced filename) inside the project folder. Shortcuts to individual files are resolved; shortcuts to entire folders are not.
