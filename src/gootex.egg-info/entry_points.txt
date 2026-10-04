@@ -1,3 +1,0 @@
-[console_scripts]
-gootex-cli = gootex.cli:main
-gootex-gui = gootex.gui:run_gui
