@@ -39,7 +39,7 @@ If you are the designated **Server Host** for your research group, you must init
 If the Server Host has already initialized your group's Drive folder, you do not need to install any software.
 
 **If you are starting a NEW paper:**
-1. Make a copy of the [gooTeX Template](https://docs.google.com/document/d/1Y5WeR3lr1AepJEe5M1x7TT9k7JqnIQ-JBTpEq3ESP88/copy).
+1. Make a copy of the [gooTeX Template](https://docs.google.com/document/d/1wMrs8uC3gYE5PAqPSfLPgZSEN-zWw-Vw5zSaSXGpzqw/copy).
 2. Move the copied Google Doc into the group's initialized Google Drive folder (or a sub-folder within it). Place your `.bib` and images alongside it.
 3. Open the Doc and use **GooTeX > 🤝 Invite Co-Author** to bring in collaborators.
 4. Use the Google Doc menu to compile your PDF using the Host's server.
