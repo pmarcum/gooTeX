@@ -1,0 +1,74 @@
+# /etc/systemd/system/gootex.service   (EXAMPLE — copy, then adjust paths/user)
+#
+# gooTeX LaTeX compilation server.
+# Secrets are NOT stored in this file. Set them in a drop-in override:
+#     sudo systemctl edit gootex
+# which creates /etc/systemd/system/gootex.service.d/override.conf — see the
+# commented example at the bottom of this file.
+
+[Unit]
+Description=GooTeX LaTeX Compilation Server
+After=network-online.target
+Wants=network-online.target
+# gooTeX is independent of BibMan — BibMan is only called at compile time via
+# localhost, so gooTeX still works if BibMan is down.
+
+[Service]
+# --- Identity: the service account/home that owns the install ---
+User=bibman
+Group=bibman
+WorkingDirectory=/home/bibman/gootex
+
+# --- Non-secret environment ---
+Environment="GOOTEX_PORT=8082"
+# Optional overrides (all have sensible defaults — uncomment only to change them):
+#   Cache/scratch dirs default to the service user's home (~/gootex_cache, ~/gootex_processing)
+# Environment="GOOTEX_CACHE_BASE=/home/youruser/gootex_cache"
+# Environment="GOOTEX_PROCESSING_BASE=/home/youruser/gootex_processing"
+#   BibMan export endpoint (only if BibMan runs on a non-default host/port)
+# Environment="BIBMAN_URL=http://localhost:8081/api/export/bib"
+#   AI model for the server-side error assistant
+# Environment="GOOTEX_GEMINI_MODEL=gemini-2.5-flash"
+
+# --- Process (Gunicorn, 1 worker — pdflatex is heavy and requests serialise) ---
+ExecStart=/home/bibman/gootex/venv/bin/gunicorn \
+    --workers 1 \
+    --timeout 120 \
+    --bind 127.0.0.1:8082 \
+    --log-level warning \
+    "gootex_e2micro_server:app"
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gootex
+
+# --- Resource limits (tuned for a 1 GB e2-micro with 2 GB swap) ---
+MemoryMax=2500M
+MemorySwapMax=2G
+
+# --- Security ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/home/bibman/gootex_cache /home/bibman/gootex_processing /tmp
+
+[Install]
+WantedBy=multi-user.target
+
+# ---------------------------------------------------------------------------
+# SECRETS DROP-IN — do NOT put these in this unit file or commit them anywhere.
+# Run:  sudo systemctl edit gootex
+# and add:
+#
+#   [Service]
+#   Environment="GOOTEX_CREDENTIAL=REPLACE_ME_long_random_string"
+#   Environment="BIBMAN_CREDENTIAL=REPLACE_ME_only_if_using_BibMan"
+#   # Optional — only to use the server-side AI route instead of the
+#   # Apps Script side (most installs leave this unset):
+#   # Environment="GEMINI_API_KEY=REPLACE_ME"
+#
+# GOOTEX_CREDENTIAL must match CONFIG.GOOTEX_CREDENTIAL in the template's
+# bound Config.gs, or every compile returns HTTP 403.
+# ---------------------------------------------------------------------------
