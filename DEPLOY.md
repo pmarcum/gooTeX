@@ -160,6 +160,8 @@ var CONFIG = {
 };
 ```
 
+**Also allow your server in the script's whitelist.** In the same bound script, open ⚙️ **Project Settings → "Show appsscript.json manifest file"**, and in `urlFetchWhitelist` replace `https://YOUR-SERVER-DOMAIN-HERE/` with your own server's domain (e.g. `https://yourname.duckdns.org/`). **Without this, the script silently refuses to contact your compile server** and nothing happens on compile. While you're there, change `timeZone` if you're not in US Pacific. (Level-2 adopters also swap the `libraries` → `libraryId` for their own copy — see §4.1.)
+
 ### 4.4 Initialize the Drive workspace
 From the Doc's `GooTeX` menu → **🔧 Server Setup → 📂 Initialize Drive Folder**. This creates the `allowed_users` access spreadsheet, adds you as the first allowed user, and shows its **File ID** in an alert. Paste that ID into `GOOTEX_ACCESS_SHEET_ID` in `Config.gs`.
 
