@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 25px; line-height: 1.6; color: #444; background: #fff; }
+    h1 { color: #c0392b; border-bottom: 2px solid #e74c3c; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px; }
+    h2 { color: #c0392b; margin-top: 30px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    h3 { color: #555; margin-top: 20px; font-size: 15px; font-weight: 700; }
+    .card { background: #fdf2f2; border-left: 4px solid #c0392b; padding: 15px; margin-bottom: 15px; border-radius: 0 4px 4px 0; }
+    .step { background: #fff; border: 1px solid #ddd; border-left: 4px solid #0e639c; padding: 12px; margin-bottom: 10px; border-radius: 4px; }
+    .step-num { font-weight:bold; color:#0e639c; margin-right:8px; font-size:1.1em; }
+    code { background: #eee; padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 0.9em; color: #c7254e; }
+    hr { border: 0; border-top: 1px solid #e74c3c; margin: 20px 0; opacity: 0.3; }
+    ul { margin: 5px 0; padding-left: 20px; }
+    li { margin-bottom: 6px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>🔧 Administrator Manual</h1>
+  <div class="card">
+    <p>One-time system setup and ongoing administration. Regular authors do not need this — direct them to the User Guide.</p>
+  </div>
+  <p><b>Research Group:</b> <code><?= teamFolder ?></code></p>
+
+  <h2>1. One-Time System Setup</h2>
+  <p>Performed once per research group installation. Not repeated for each new paper.</p>
+
+  <div class="step">
+    <span class="step-num">Step 1:</span> <b>Make a copy of the GooTeX template</b><br>
+    Make a copy of the
+    <a href="https://docs.google.com/document/d/1wMrs8uC3gYE5PAqPSfLPgZSEN-zWw-Vw5zSaSXGpzqw/copy" target="_blank">public GooTeX template document</a>
+    in Google Drive. The copy will already have the <code>GooTeX_Core</code> library linked
+    and the <code>Config.gs</code> and <code>Code.gs</code> script files in place.<br><br>
+    <code>GooTeX_Core</code> is the shared library that provides the GooTeX engine.
+    <code>Code.gs</code> is a lightweight attached script whose sole purpose is to load
+    <code>GooTeX_Core</code> into the document and pass it the local configuration.<br><br>
+    Open <b>Extensions &gt; Apps Script</b> and fill in your group's values in <code>Config.gs</code> (see Step 2).
+  </div>
+
+  <div class="step">
+    <span class="step-num">Step 2:</span> <b>Configure Config.gs</b><br>
+    In the attached script's <code>Config.gs</code>, set the following values:<br><br>
+    <code>GOOTEX_SERVER_URL</code> — VM server URL<br>
+    <code>GOOTEX_CREDENTIAL</code> — must match GOOTEX_SECRET on the VM<br>
+    <code>BIBMAN_CREDENTIAL</code> — BibMan credential (if BibMan is deployed)<br>
+    <code>GOOTEX_ACCESS_SHEET_ID</code> — access spreadsheet ID (see Step 3)<br>
+    <code>GEMINI_API_KEY</code> — Google AI Studio API key<br>
+    <code>GOOTEX_ATTACHED_VERSION</code> — set to 1<br>
+    <code>GOOTEX_TEMPLATE_URL</code> — the "make a copy" URL of THIS template (shown to users when their attached script needs updating)
+  </div>
+
+  <div class="step">
+    <span class="step-num">Step 3:</span> <b>Create the access spreadsheet</b><br>
+    Run <b>GooTeX &gt; Admin Only &gt; Initialize Drive Folder</b>.<br>
+    A <code>GooTeX_Access</code> spreadsheet will be created and its file ID displayed.<br>
+    Copy that ID into <code>GOOTEX_ACCESS_SHEET_ID</code> in <code>Config.gs</code>.<br>
+    Add authorized user emails to the <code>allowed_users</code> tab, one per row.
+  </div>
+
+  <div class="step">
+    <span class="step-num">Step 4:</span> <b>Verify</b><br>
+    Run <b>GooTeX &gt; Admin Only &gt; Check System Status</b>. All items should show ✅.
+  </div>
+
+  <h2>2. Managing Co-Author Access</h2>
+  <div class="step">
+    <span class="step-num">Add:</span> Use <b>GooTeX &gt; Utilities &gt; Invite Co-Author</b> —
+    Drive access, whitelist entry, and invitation email are handled automatically.
+  </div>
+  <div class="step">
+    <span class="step-num">Remove:</span> Open the <code>GooTeX_Access</code> spreadsheet,
+    delete the email from the <code>allowed_users</code> tab, then run
+    <b>GooTeX &gt; Admin Only &gt; Reset Connection</b> to clear the cached access list.
+  </div>
+
+  <h2>3. Troubleshooting</h2>
+  <div class="card">
+    <h3>🅰️ Compiler Server Offline</h3>
+    <p>The server restarts automatically after most failures. If it remains offline after 30 seconds, the VM administrator will need to restart the service manually.</p>
+    <hr>
+    <h3>🅱️ Reset Connection</h3>
+    <p>Run <b>GooTeX &gt; Admin Only &gt; Reset Connection</b> after adding or removing users, updating credentials in <code>Config.gs</code>, or any report of stale sidebar behavior.</p>
+    <hr>
+    <h3>🅲️ Credentials Not Working</h3>
+    <p>If <b>Check System Status</b> shows a credential missing or the server returns 403 errors, verify the values in <code>Config.gs</code> and run <b>Reset Connection</b> afterward.</p>
+    <hr>
+    <h3>🅳️ Image Issues</h3>
+    <p>Images over 1.5MB are compressed automatically on first compile. Add <code>_NOCOMPRESS</code> to a filename to prevent compression. Manual compression is available via <b>GooTeX &gt; Utilities &gt; Compress Image</b>.</p>
+  </div>
+
+  <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; text-align: right;">
+    <button onclick="google.script.host.close()" style="background-color: #f5f5f5; color: #333; border: 1px solid #ccc; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">Close Guide</button>
+  </div>
+  <script>
+    window.onload = function() { window.focus(); };
+  </script>
+</body>
+</html>
