@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 25px; line-height: 1.6; color: #444; background: #fff; }
+    h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px; }
+    h2 { color: #0e639c; margin-top: 30px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    h3 { color: #555; margin-top: 15px; font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+    .card { background: #f8f9fa; border-left: 4px solid #0e639c; padding: 12px 15px; margin-bottom: 15px; border-radius: 0 4px 4px 0; }
+    .tip  { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 10px; font-size: 13px; color: #2e7d32; margin-top: 5px; }
+    .warn { background: #fff3e0; border-left: 4px solid #ff9800; padding: 10px; font-size: 13px; color: #e65100; margin-top: 5px; }
+    code { background: #eee; color: #d63384; padding: 2px 5px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 0.9em; }
+    .key { display: inline-block; padding: 2px 6px; font-size: 11px; line-height: 10px; color: #444; vertical-align: middle; background-color: #f7f7f7; border: solid 1px #ccc; border-bottom-color: #bbb; border-radius: 3px; box-shadow: inset 0 -1px 0 #bbb; }
+    .icon { font-size: 16px; width: 20px; display: inline-block; text-align: center; }
+    ul { margin: 5px 0; padding-left: 20px; }
+    li { margin-bottom: 6px; font-size: 13px; }
+    .search-table td { padding: 4px 8px; font-size: 13px; vertical-align: top; }
+    .search-table tr:nth-child(even) { background-color: #f1f1f1; }
+    .status-mock { background:#333; color:#fff; padding:6px 10px; font-family:monospace; border-radius:3px; margin: 10px 0; font-size:12px; }
+  </style>
+</head>
+<body>
+
+  <div style="text-align:center; margin-bottom:20px;">
+    <img src="https://raw.githubusercontent.com/pmarcum/gooTeX/main/gootex_logo.png" style="width:180px;">
+  </div>
+  <h1 style="text-align:center;">User Guide</h1>
+  <p>Write your paper in Google Docs — GooTeX handles the LaTeX compilation when you hit the Compile button.</p>
+  <h2>📄 Starting a New Paper</h2>
+  <div class="card">
+    <ol style="margin:0; padding-left:20px;">
+      <li>Create a folder in Google Drive for the paper.</li>
+      <li>Place this Google Doc inside that folder, or any subfolder of it.</li>
+      <li>Place your image files, <code>.bib</code> file, and any supplemental <code>.tex</code> files in that folder or its subfolders.</li>
+      <li>Open <b>GooTeX &gt; Control Panel</b> and click <b>Compile</b>.</li>
+    </ol>
+    <div class="tip" style="margin-top:10px;">
+      The folder does not need any special setup — GooTeX finds the server configuration automatically.
+    </div>
+  </div>
+
+  <h2>🚀 The Control Panel (Sidebar)</h2>
+  <div class="card">
+    Open via <b>GooTeX &gt; Control Panel</b>.
+    <ul>
+      <li><span class="icon">🟦</span> <b>REFRESH:</b> Scans the document for new citations, labels, and text changes without compiling a PDF.</li>
+      <li><span class="icon">🟩</span> <b>COMPILE:</b> Sends the document to the server and builds the full PDF.</li>
+      <li><span class="icon">¶</span> <b>MARKERS:</b> Toggles tiny gray paragraph numbers in the text. Useful for locating LaTeX errors.</li>
+    </ul>
+  </div>
+
+  <h2>📊 The Status Bar (HUD)</h2>
+  <div class="card">
+    <p>Located at the bottom of the sidebar, updated after every compile:</p>
+    <div class="status-mock">w:2450 | p:12 | Joh... | 4:30p</div>
+    <ul>
+      <li><b>w:</b> Word count (approximate).</li>
+      <li><b>p:</b> Page count from the last successful PDF.</li>
+      <li><b>User:</b> Who triggered the last compile.</li>
+      <li><b>Time:</b> Timestamp of the last PDF.</li>
+    </ul>
+  </div>
+
+  <h2>📂 The Tabs</h2>
+
+  <h3>1. Log (The Debugger)</h3>
+  <p>Displays output from the LaTeX compiler. Check here when a compile fails.</p>
+  <ul>
+    <li><b>Click an Error:</b> Jumps the cursor to the exact code block in the document where the error occurred.</li>
+    <li><b>The 🤖 Button:</b> Click the robot icon next to a cryptic error — Gemini AI will analyze the context and suggest a fix.</li>
+  </ul>
+  <div class="tip" style="font-size: 12px; margin-top:0;">
+    <b>Tip:</b> The more paragraph breaks in the document, the more precisely GooTeX can locate errors.
+  </div>
+
+  <h3>2. Refs (Bibliography Manager)</h3>
+  <p>Displays and manages the bibliography for the paper. Two sources are supported:</p>
+
+  <div class="card">
+    <b>Option A — Local <code>.bib</code> file</b><br>
+    Place a <code>.bib</code> file anywhere in the project folder. Reference it in the document with:
+    <br><code>\bibliography{MyLibrary}</code><br><br>
+    GooTeX finds the file automatically and populates the Refs tab from it.
+  </div>
+
+  <div class="card">
+    <b>Option B — BibMan (optional)</b><br>
+    BibMan is a shared bibliography manager that your research group may have set up. 
+    If available, reference it with:<br>
+    <code>\bibliography{bibman:LibraryName}</code><br><br>
+    GooTeX connects to BibMan automatically, retrieves only the entries cited in the document,
+    and refreshes the Refs tab when the library changes. No local <code>.bib</code> file needed.
+    <div class="tip" style="margin-top:8px;">
+      Ask your system administrator whether BibMan is available for your group and what the library name is.
+    </div>
+  </div>
+
+  <p>Regardless of which option is used, the Refs tab works the same way:</p>
+  <ul>
+    <li><b>⭐ Stars:</b> Items highlighted in yellow/gold are cited at least once in the document.</li>
+    <li><b>Insert Cite:</b> Place the cursor where the citation should go, type <code>\citep{</code>, then click <b>Cite</b> next to the desired reference.</li>
+    <li><b>Smart Filter:</b> Use these prefixes in the search bar:</li>
+  </ul>
+
+  <table class="search-table" style="width:100%; border-collapse: collapse; background:#fafafa; border:1px solid #ddd; margin-bottom:10px;">
+    <tr><td><b>Author</b></td><td><code>a:smith</code></td></tr>
+    <tr><td><b>Year</b></td><td><code>y:2020</code> (Exact), <code>y:2020-</code> (Since), <code>y:2020-2025</code> (Range)</td></tr>
+    <tr><td><b>Title</b></td><td><code>t:galaxies starformation</code></td></tr>
+    <tr><td><b>Journal</b></td><td><code>j:apj</code>, <code>j:apj 630</code> (Vol), <code>j:apj 630 56</code> (Page)</td></tr>
+    <tr><td><b>Any</b></td><td>Type words without prefix to search raw text.</td></tr>
+    <tr><td><b>Combo</b></td><td><code>a:smith t:galaxies y:2000-</code></td></tr>
+  </table>
+
+  <h3>3. Figs & Tabs (Assets)</h3>
+  <p>Tracks every <code>\begin{figure}</code> and <code>\begin{table}</code> in the text.</p>
+  <ul>
+    <li><b>Thumbnails:</b> Preview of the figure image if available in Drive.</li>
+    <li><b>REF Button:</b> Inserts a cross-reference (e.g., <code>Fig.~\ref{fig:label}</code>).</li>
+    <li><b>SEC Button:</b> Inserts a reference to the section containing that figure.</li>
+  </ul>
+
+  <h3>4. { } Snip (Templates)</h3>
+  <p>Click a button to insert complex LaTeX templates instantly.</p>
+  <ul>
+    <li><b>My Shortcuts:</b> Click <b>+ Add</b> to save frequently used LaTeX blocks.</li>
+    <li><b>Built-in:</b> Standard templates for Figures, Tables (<code>deluxetable</code>), and Math.</li>
+  </ul>
+
+  <h2>📂 File Organization</h2>
+  <div class="card">
+    <h3>Where to save this document</h3>
+    <p>The document can live anywhere in Google Drive. GooTeX finds the server configuration automatically. Placing the document inside the project folder (or a subfolder) is recommended so all co-authors with folder access can compile.</p>
+    <div class="card" style="background: #fff9c4; border-left-color: #fbc02d;">
+      <b>👥 Co-Authors:</b> Editor access to the project folder is required. If invited via <b>GooTeX &gt; Utilities &gt; Invite Co-Author</b>, access is granted automatically.
+    </div>
+    <hr style="border:0; border-top:1px solid #ccc; margin:15px 0;">
+    <h3>Where to save supplemental files</h3>
+    <div class="warn">
+      GooTeX searches for images, <code>.tex</code> files, and <code>.bib</code> files in the project folder and all its subfolders, as well as the folder containing the Google Doc. The system <code>Compiled</code> folder is ignored automatically.
+    </div>
+    <ul>
+      <li>Put images in an <code>Images/</code> subfolder and chapters in a <code>Chapters/</code> subfolder — GooTeX will find them.</li>
+      <li>Keep images as real files rather than shortcuts — shortcuts may not preview correctly in the sidebar.</li>
+    </ul>
+  </div>
+
+  <h2>🛠️ Utilities</h2>
+  <div class="card">
+    <ul>
+      <li><b>📉 Compress Image:</b> Manually compress a specific image on Drive. Images over 1.5MB are also compressed automatically on first compile. Originals are preserved with an <code>_UNCOMPRESSED</code> suffix. Add <code>_NOCOMPRESS</code> to a filename to prevent compression entirely.</li>
+      <li><b>📝 Word Count:</b> Counts words in selected text.</li>
+      <li><b>🤝 Invite Co-Author:</b> Grants Drive access, adds the user to the compiler whitelist, and sends an invitation email.</li>
+      <li><b>📄 Compiled Files:</b> After each successful compile, the PDF, log, bibliography, and processed <code>.tex</code> file are saved automatically to a <code>Compiled/</code> subfolder.</li>
+    </ul>
+  </div>
+
+  <h2>⌨️ Shortcuts</h2>
+  <div class="card">
+    <ul>
+      <li><b>Refresh:</b> <span class="key">Alt</span> + <span class="key">R</span></li>
+      <li><b>Compile:</b> <span class="key">Alt</span> + <span class="key">Enter</span></li>
+    </ul>
+    (on Mac, <span class="key">Alt</span> is <span class="key">Option</span>)
+  </div>
+
+  <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; text-align: right;">
+    <button onclick="google.script.host.close()" style="background-color: #f5f5f5; color: #333; border: 1px solid #ccc; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">Close Guide</button>
+  </div>
+  <script>
+    window.onload = function() { window.focus(); };
+  </script>
+</body>
+</html>
