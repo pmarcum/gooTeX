@@ -10,7 +10,7 @@ The <span style="color:green; font-weight:bold;">gooTeX</span> template includes
 * **LaTeX Errors:** Compilation errors/warnings are presented in a sidebar. Clicking an error navigates to the relevant location in the document and briefly highlights the paragraph in the editor. A button launches a targeted Gemini AI assistant — including a follow-up chat — for help resolving the error.
 * **LaTeX Linting:** Basic syntax checking within the Doc.
 
-Behind the scenes, <span style="color:green; font-weight:bold;">gooTeX</span> compiles your manuscript on a persistent server running a standard LaTeX toolchain — hosted on whatever platform best suits your group (see Phase 1 below).
+Behind the scenes, <span style="color:green; font-weight:bold;">gooTeX</span> compiles your manuscript on a persistent server running a standard LaTeX toolchain — hosted on whatever platform best suits your group. (Standing up that server for your own group is covered in **[DEPLOY.md](DEPLOY.md)**.)
 
 ---
 
@@ -19,44 +19,18 @@ Behind the scenes, <span style="color:green; font-weight:bold;">gooTeX</span> co
 >
 > **Want to use gooTeX without the setup burden?** If you'd like to join the existing group and get access to the running system, reach out to the maintainer (Pamela Marcum) by **opening an issue on this repository** to inquire about joining.
 >
-> **Everything below is for a _different_ research group that wants to stand up its _own_ independent instance** — its own compile server, its own credentials, and its own Google Drive workspace. You only need these instructions if you are deploying gooTeX for a group of your own.
+> **Setting up gooTeX for a _different_ research group** — your own compile server, credentials, and Google Drive workspace — is a separate job, covered step by step in **[DEPLOY.md](DEPLOY.md)**. The sections below are about *using* gooTeX day to day.
 
 ---
 
-## Getting Started: The Setup Matrix
+## Deploying gooTeX for your own group
 
-Your setup requirements depend entirely on your role in the group. Find your situation in the matrix below.
-
-| Your Role | Google Doc Action | Server Setup |
-| :--- | :--- | :--- |
-| **Server Host** (Providing LaTeX compiler) | Click *Initialize Drive Folder*, configure server endpoint in `Config.gs` | Deploy any persistent server capable of running LaTeX; set its URL in `Config.gs` |
-| **Author** (Starting or joining a paper) | Just write! (see Phase 2 below) | None — handled by the Host |
+Standing up an independent gooTeX instance — your own compile server, credentials, and Google Drive workspace — is covered step by step in **[DEPLOY.md](DEPLOY.md)**. You don't need any of that to *use* gooTeX in a group that already runs it; the rest of this page is for authors.
 
 ---
 
-### Phase 1: Workspace Setup (Server Hosts Only)
-If you are the designated **Server Host** for your research group, you must initialize the shared workspace once:
-1. Create a dedicated root folder in Google Drive for your group's papers (e.g., `Shared Drive/gooTeX_Projects/`).
-2. Open any blank Google Doc inside this folder, wait for the custom menu, and click **GooTeX > 🔧 Server Setup > 📂 Initialize Drive Folder**. Accept the permissions. This creates the user-access spreadsheet and displays its ID in an alert — copy that ID into `GOOTEX_ACCESS_SHEET_ID` in `Config.gs` before proceeding.
-3. Ensure your cloud server is running and reachable, then set its endpoint URL in `Config.gs`. Any persistent server that can run a LaTeX toolchain and respond to HTTP requests will work — the specific platform (VM, VPS, container, etc.) is up to you.
-
-#### Server Requirements
-Your compile server needs a complete LaTeX toolchain plus a few supporting tools. The repository includes **`cloud/provision_server.sh`**, which installs everything listed below on a fresh Debian/Ubuntu host — run it once:
-```bash
-bash cloud/provision_server.sh
-```
-What it installs:
-* **Python packages:** `flask`, `requests`, `google-genai` (keep these in sync with the imports at the top of `cloud/server_engine.py`).
-* **LaTeX (TeX Live):** `texlive-latex-recommended`, `texlive-latex-extra`, `texlive-fonts-recommended`, `texlive-fonts-extra`, `texlive-pictures`, `texlive-science`, `texlive-bibtex-extra`, `texlive-extra-utils`, `texlive-publishers`.
-* **Tooling:** `chktex` (linting), `imagemagick` (figure conversion), `poppler-utils` (PDF utilities), `texcount` (word counts), `pandoc`, `bc`.
-* **Astronomy document classes:** `aastex631.cls`, `mnras.cls`, `aa.cls`, and `emulateapj.cls`, fetched from their publishers into the TeX tree. Trim or extend this list in the script to match your field.
-
-Once provisioned, run `cloud/server_engine.py` as a persistent service (e.g. a `systemd` unit that restarts on failure) reachable over HTTP(S), then put that URL in `GOOTEX_SERVER_URL` in `Config.gs`.
-
----
-
-### Phase 2: Starting or Joining a Paper (Authors)
-Once the Server Host has initialized the group's Drive folder, authors do not need to install any software or perform any special Drive configuration.
+## Starting or Joining a Paper (Authors)
+Once your group's workspace is set up, authors do not need to install any software or perform any special Drive configuration.
 
 **If you are starting a NEW paper:**
 1. Make a copy of the [gooTeX Template](https://docs.google.com/document/d/1wMrs8uC3gYE5PAqPSfLPgZSEN-zWw-Vw5zSaSXGpzqw/copy).
