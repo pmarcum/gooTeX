@@ -1,0 +1,12 @@
+# gooTeX compile server — Python dependencies
+# (cloud/gootex_e2micro_server.py)
+#
+# Install into the service virtualenv:
+#     venv/bin/pip install -r cloud/requirements.txt
+#
+# Versions are intentionally unpinned for a fresh install; pin them
+# (e.g. flask==3.0.3) once you have a working deployment you want to freeze.
+flask
+gunicorn
+google-genai
+requests
