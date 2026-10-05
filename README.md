@@ -84,6 +84,10 @@ Once the Server Host has initialized the group's Drive folder, authors do not ne
 
 <span style="color:green; font-weight:bold;">gooTeX</span> works perfectly well with an ordinary `.bib` file, but it can also pull your bibliography live from **BibMan**, a companion reference-management web service. BibMan keeps your references — with paper-level and passage-level tagging and search — in its own database and can export them as BibTeX on demand.
 
-When BibMan runs on the same host as the gooTeX compile server, the two connect over a local, authenticated loopback request: during compilation, gooTeX asks BibMan for the current bibliography and uses the returned BibTeX directly. Your citations then always reflect the latest state of your BibMan library, with no hand-maintained `.bib` file to keep in sync.
+To use it, an author points the document's bibliography at a named BibMan library with a `bibman:` prefix instead of a local filename:
+```latex
+\bibliography{bibman:Extragalactic.bib}   % pulls the "Extragalactic" library from BibMan
+```
+When BibMan runs on the same host as the gooTeX compile server, the two connect over a local, authenticated loopback request: during compilation gooTeX fetches that named library, generates the `.bib` on the fly (named after the library), and uses it directly — so your citations always reflect the latest state of your BibMan library, with no hand-maintained `.bib` file to keep in sync.
 
 This integration is **entirely optional** — gooTeX compiles normally from a static `.bib` file when BibMan is not present. BibMan is a separate project with its own setup and documentation; refer to it to deploy the service and to configure the shared credential that authorizes gooTeX to read from it.
