@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    /* BASE THEME: VS Code Dark Style */
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #1e1e1e; color: #d4d4d4; margin: 0;
+           display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* OFFLINE ALARM */
+    body.offline-alert { background-color: #4a0a0a !important; }
+    body.offline-alert .status-deck,
+    body.offline-alert .control-deck,
+    body.offline-alert .filter-bar,
+    body.offline-alert .tabs { background-color: #4a0a0a !important; border-bottom-color: #ff4444 !important; }
+    body.busy { pointer-events: none; opacity: 0.7; cursor: wait; }
+
+    /* Row 1: Controls */
+    .control-deck { background: #252526; padding: 4px; display: flex; gap: 2px; border-bottom: 1px solid #333; flex-shrink: 0; }
+    .action-btn { flex: 1; height: 30px; border: none; border-radius: 3px; cursor: pointer; color: white;
+                  padding: 0 3px; display: flex; justify-content: space-between; align-items: center; }
+    .btn-label { font-weight: 700; font-size: 16px; letter-spacing: 0.5px; }
+    .shortcut-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; line-height: 13px;
+                      font-size: 10px; font-weight: 400; opacity: 0.95; white-space: nowrap; }
+    /* KEYBOARD SHORTCUT STYLING */
+    .upper-key-row { display: flex; gap: 2px; justify-content: flex-end; margin-bottom: 0px; }
+    .lower-key-row { display: flex; gap: 2px; justify-content: flex-end; margin-bottom: 0px; }
+    .key-cap { border: 1px solid rgba(255,255,255,0.35); border-radius: 3px; padding: 0px; letter-spacing: 2px;
+               font-size: 14px; line-height: 12px; background: rgba(0,0,0,0.2); font-family: system-ui, -apple-system, sans-serif;
+               min-width: 8px; text-align: center; box-shadow: 0 1px 0 rgba(0,0,0,0.2);}
+    .btn-blue { background-color: #0e639c; }
+    .btn-green { background-color: #388e3c; }
+
+    /* Row 2: Filter */
+    .filter-bar { background: #252526; padding: 0 4px 4px 4px; border-bottom: 1px solid #333; flex-shrink: 0; }
+    .search-box { width: 100%; background: #3c3c3c; border: 1px solid #555; color: #fcf7c5; padding: 4px;
+                  box-sizing: border-box; border-radius: 3px; font-size: 14px; }
+    .search-box::placeholder { color: #cccccc; opacity: 1; font-style: italic; }
+    /* Row 3: Status Deck (TARGET FOR SUCCESS MSG) */
+    .status-deck { min-height: 28px; height: auto; background: #1e1e1e; border-bottom: 1px solid #333;
+                   display: flex; align-items: center; padding: 2px 8px; position: relative; flex-shrink: 0; }
+    #status-msg { font-size: 12px; font-weight: 700; color: #4fc1ff; width: 100%;
+                  display: flex; align-items: center; gap: 8px; overflow: hidden; }
+
+    /* Row 4: Help Panel */
+    #help-panel { background: #333; padding: 4px; font-size: 13px; color: #fff; border-bottom: 1px solid #444; text-align: center; flex-shrink: 0; }
+
+    /* Row 5: Tabs */
+    .tabs { display: flex; background: #2d2d2d; border-bottom: 1px solid #1e1e1e; flex-shrink: 0; }
+    .tab { flex: 1; padding: 2px; text-align: center; cursor: pointer; color: #d4d4d4; font-weight:600; font-size: 18px;
+           border-bottom: 1px solid transparent; }
+    .tab.active { color: #4fc1ff; border-bottom: 2px solid #4fc1ff; background: #1e1e1e; }
+
+    .content-area { flex: 1; overflow-y: auto; padding-bottom: 30px; }
+    .tab-content { display: none; padding: 10px; }
+    .tab-content.active { display: block; }
+
+    /* MAGAZINE LAYOUT */
+    .asset-item { background: #2d2d2d; padding: 4px; margin-bottom: 2px; border-radius: 4px; border-bottom: 1px solid #333;
+                  position: relative; border-left: 3px solid transparent; display: block; overflow: hidden; }
+    .thumb-box { width: 120px; height: 120px; background: #000; border: 1px solid #444; border-radius: 4px; float: left;
+                 margin: 0 12px 4px 0; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .thumb-img { width: 100%; height: 100%; object-fit: contain; display: none; }
+    .thumb-placeholder { font-size: 20px; opacity: 0.3; }
+    .thumb-label { position: absolute; top: 0; left: 0; background: rgba(14, 99, 156, 0.95); color: #fff; font-size: 11px;
+                   font-weight: 400; letter-spacing: 0.5px; padding: 3px 6px; border-bottom-right-radius: 4px; z-index: 5; }
+    .caption-text { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
+                    text-overflow: ellipsis; color: #aaa; font-size: 12px; line-height: 1.3; margin-top: 2px; cursor: pointer; }
+    .item-content { position: relative; padding-bottom: 24px; min-height: 40px; display: block; min-width: 0; overflow: visible; }
+    .caption-text.expanded { -webkit-line-clamp: unset; -webkit-box-orient: unset; display: block; overflow: visible; color: #d4d4d4; white-space: normal; }
+    .caption-text.wide { -webkit-line-clamp: 6; font-size: 11px; color: #ccc; width: 100%; }
+    .btn-corner-tuck { position: absolute; bottom: 0; right: 0; display: flex; gap: 6px; background: transparent; padding-left: 10px; pointer-events: auto; }
+
+    .btn-vert { border: none; padding: 6px 0; cursor: pointer; font-size: 10px; width: 40px; text-align: center; color: white; }
+    .btn-v-blue { background-color: #0e639c; border-bottom: 1px solid rgba(0,0,0,0.2); }
+    .btn-v-purple { background-color: #6a1b9a; }
+
+    .btn-insert, .btn-sect { position: absolute; right: 2px; z-index: 10; opacity: 0.30; color: white; border: none;
+                             padding: 1px 4px; border-radius: 2px; cursor: pointer; transition: opacity 0.2s; pointer-events: auto; }
+    .btn-insert { top: 5px; background: #0e639c; }
+    .btn-sect { bottom: 5px; background: #6a1b9a; font-size: 10px; }
+    .btn-insert:hover, .btn-sect:hover { opacity: 1.0; }
+    .btn-insert:disabled, .btn-sect:disabled { display:none; }
+
+    .smart-label { font-family: 'Consolas', monospace; color: #9cdcfe; font-weight: bold; font-size: 1.1em; }
+    .ref-details { font-size: 0.9em; color: #ccc; line-height: 1.15; padding-right: 0px; }
+
+    .log-error { color: #f44336; border-left: 1px solid #f44336; padding-left: 4px; font-size: 13px; }
+    .log-warn { color: #ff9800; border-left: 1px solid #ff9800; padding-left: 4px; font-size: 13px; }
+    .log-selected { background-color: #444 !important; border-right: 5px solid #fff !important; filter: brightness(1.2); transition: all 0.1s ease; }
+
+    .badge-lint { font-family: monospace; background: #333; color: #ccc; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin-right: 4px; }
+
+    .progress-container { position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: transparent; overflow: hidden; display: none; z-index: 10; }
+    .progress-line { width: 100%; height: 100%; background-color: #0e639c; transform-origin: left; animation: indeterminate 2s infinite linear; }
+    @keyframes indeterminate { 0% { transform: translateX(-100%) scaleX(0.2); } 50% { transform: translateX(0%) scaleX(0.5); } 100% { transform: translateX(100%) scaleX(0.2); } }
+    @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1.0; } 100% { opacity: 0.4; } }
+
+    .macro-btn { display: block; width: 100%; background: #252526; color: #d4d4d4; border: 1px solid #3c3c3c; border-left: 1px solid #0e639c; padding: 10px; margin-bottom: 6px; text-align: left; cursor: pointer; font-family: 'Consolas', monospace; font-size: 14px; transition: all 0.1s ease; }
+    .macro-btn:hover { background: #3c3c3c; color: #fff; border-left: 3px solid #4fc1ff; transform: translateX(2px); }
+    .macro-btn b { color: #569cd6; }
+
+    .hidden { display: none !important; }
+    #status-hud { position: fixed; bottom: 0; left: 0; right: 0; background: #1e1e1e; border-top: 1px solid #333; padding: 2px 8px; font-size: 11px;
+                  font-family: 'Consolas', 'Monaco', monospace; color: #EFF299; text-align: left; z-index: 1000; white-space: nowrap; overflow: hidden;
+                  text-overflow: ellipsis; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    /* LOCAL HELP SECTION */
+    .local-info { background: #252526; border-top: 1px solid #333; padding: 8px; font-size: 11px; color: #aaa; flex-shrink: 0; }
+    .local-info b { color: #4fc1ff; }
+    .local-code { background: #000; color: #ce9178; padding: 2px 4px; font-family: 'Consolas', monospace; border-radius: 3px; }
+
+    /* UPDATE BANNERS */
+    .update-banner { padding: 6px 10px; font-size: 11px; line-height: 1.4; border-bottom: 1px solid #444;
+                     display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-shrink: 0; }
+    .update-banner-core    { background: #1a3a1a; border-left: 3px solid #4caf50; color: #a5d6a7; }
+    .update-banner-client  { background: #1a2a3a; border-left: 3px solid #4fc1ff; color: #90caf9; }
+    .update-banner-dismiss { background: none; border: none; color: inherit; cursor: pointer;
+                             font-size: 14px; opacity: 0.6; flex-shrink: 0; padding: 0 2px; line-height: 1; }
+    .update-banner-dismiss:hover { opacity: 1.0; }
+
+    /* AI FOLLOW-UP CHAT */
+    #ai-followup-area { border-top: 1px solid #333; padding-top: 8px; flex-shrink: 0; }
+    #ai-conversation { flex: 1; font-size: 13px; line-height: 1.5; overflow-y: auto; margin-bottom: 8px; font-family: 'Segoe UI', sans-serif; }
+    .ai-turn-user { color: #4fc1ff; white-space: pre-wrap; margin-bottom: 6px; }
+    .ai-turn-user::before { content: "▶ You: "; font-weight: bold; }
+    .ai-turn-ai { color: #d4d4d4; white-space: pre-wrap; margin-bottom: 10px; border-left: 2px solid #444; padding-left: 8px; }
+    #ai-followup-row { display: flex; gap: 6px; align-items: center; }
+    #ai-followup-input { flex: 1; background: #3c3c3c; border: 1px solid #555; color: #d4d4d4; padding: 5px 8px;
+                         border-radius: 3px; font-size: 12px; font-family: 'Segoe UI', sans-serif; }
+    #ai-followup-input::placeholder { color: #888; font-style: italic; }
+    #ai-followup-send { background: #0e639c; color: white; border: none; padding: 5px 10px; border-radius: 3px;
+                        cursor: pointer; font-size: 11px; font-weight: bold; white-space: nowrap; }
+    #ai-followup-send:disabled { opacity: 0.5; cursor: default; }
+  </style>
+</head>
+
+<body>
+  <div class="control-deck">
+    <button class="action-btn btn-blue" onclick="manualRefresh()"
+        title="Update content for each below tab&#10;(You may also use keystrokes: Alt [Opt] + R)">
+      <span class="btn-label">REFRESH</span>
+      <div class="shortcut-stack">
+        <div class="upper-key-row"><span class="key-cap" style="font-size:12px;">Alt</span><span class="key-cap" style="font-size:12px;">R</span></div>
+        <div class="lower-key-row"><span class="key-cap">⌥</span><span class="key-cap" style="font-size:12px;">R</span></div>
+      </div>
+    </button>
+    <button class="action-btn btn-green" onclick="compilePdf()"
+        title="Compile LaTeX and generate PDF&#10;(You may also use keystrokes: Alt [Opt] + Enter)&#10;PDF link will appear below.&#10;Find compilation errors/warnings in 'Log'">
+      <span class="btn-label">COMPILE</span>
+      <div class="shortcut-stack">
+        <div class="upper-key-row">
+          <span class="key-cap" style="font-size:12px;">Alt</span><span class="key-cap">↵</span>
+        </div>
+        <div class="lower-key-row">
+          <span class="key-cap">⌥</span><span class="key-cap">↵</span>
+        </div>
+      </div>
+    </button>
+    <button class="action-btn" style="background-color:#6a1b9a; flex: 0 0 20px;
+        justify-content:center; padding:0;" onclick="exportZip()"
+        title="Bundle everything in zip file&#10;for journal submission package."><span class="btn-label" style="font-size:16px;">📦</span>
+    </button>
+    <button class="action-btn" style="background-color:#444; flex: 0 0 28px; justify-content:center;
+        padding:0;" onclick="toggleMarkers()"
+        title="Toggle paragraph numbers in editor&#10(Helps in debugging errors)">
+      <span class="btn-label" style="font-size:16px;">¶</span>
+    </button>
+  </div>
+  <div class="filter-bar"><input type="text" id="universal-filter" class="search-box"
+      placeholder="Filter..." onkeyup="applyFilter()"
+      title="For all tabs, search on words/phrases&#10;For 'Ref' tab, search on:&#10;&nbsp;&nbsp;a:Author, y:Year, j:Journal, t:Title or keyword(s) without prefix&#10;&nbsp;&nbsp;(Use one of these fields or in combination)">
+  </div>
+  <div class="status-deck"><div id="status-msg">&nbsp;</div><div id="progress-bar" class="progress-container"><div class="progress-line"></div></div></div>
+  <div id="help-panel">Click on the tab below for tools.</div>
+  <div id="update-banners"></div>
+  <div class="tabs">
+    <div class="tab active" id="tab-log" onclick="switchTab('log')"
+        title="Compilation errors/warnings&#10;Click on error to jump to line.&#10;Click on 🤖 for assistance.">Log</div>
+    <div class="tab" id="tab-refs" onclick="switchTab('refs')"
+        title="Lists each reference in .bib file.&#10;Click on entry to see that paper.&#10;Click on 'Cite' to insert bibcode&#10;into document at cursor position.">Refs</div>
+    <div class="tab" id="tab-figs" onclick="switchTab('figs')" title="Inserts references to&#10;Figures & Sections hosting them&#10;at cursor position in document.&#10;&nbsp;&nbsp;'Ref': inserts 'Fig.~\ref{..}'&#10;&nbsp;&nbsp;'Sec': inserts '\S\ref{...}'">Figs</div>
+    <div class="tab" id="tab-tables" onclick="switchTab('tables')"
+        title="Inserts references to&#10;Tables & Sections hosting them.&#10;at cursor position in document.&#10;&nbsp;&nbsp;'Ref': inserts 'Table~\ref{..}'&#10;&nbsp;&nbsp;'Sec': inserts '\S\ref{...}'">Tabs</div>
+    <div class="tab" id="tab-sects" onclick="switchTab('sects')"
+        title="Inserts references to&#10;Sections in document&#10;at cursor position.&#10;&nbsp;&nbsp;Ref: inserts '\S\ref{...}'">Sects</div>
+    <div class="tab" id="tab-snip" onclick="switchTab('snip')" style="font-family:consolas; font-weight:bold;"
+        title="Code snippets & templates&#10;(Can also define custom snippets)">{ }</div>
+  </div>
+  <div class="content-area">
+    <div id="content-log" class="tab-content active"><div id="log-list"></div></div>
+    <div id="content-refs" class="tab-content"><div id="ref-list"></div></div>
+    <div id="content-figs" class="tab-content"><div id="fig-list"></div></div>
+    <div id="content-tables" class="tab-content"><div id="table-list"></div></div>
+    <div id="content-sects" class="tab-content"><div id="sect-list"></div></div>
+    <div id="content-snip" class="tab-content">
+      <div style="padding: 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div style="font-size:11px; color:#4fc1ff; font-weight:700; letter-spacing:1px;">MY SHORTCUTS</div>
+          <button onclick="addCustomSnippet()" style="background:none; border:none; color:#4fc1ff; cursor:pointer; font-size:11px; font-weight:bold; padding:4px;">+ ADD</button>
+        </div>
+        <div id="custom-list"></div>
+        <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+        <div style="font-size:11px; color:#888; margin: 0 0 6px 0; font-weight:700; letter-spacing:1px;">GRAPHICS</div>
+        <button class="macro-btn" onclick="insertMacro('fig')"><b>Figure:</b> Standard Single</button>
+        <button class="macro-btn" onclick="insertMacro('subfig')"><b>Figure:</b> 2-Panel Subfigure</button>
+        <div style="font-size:11px; color:#888; margin: 12px 0 6px 0; font-weight:700; letter-spacing:1px;">TABLES</div>
+        <button class="macro-btn" onclick="insertMacro('tab')"><b>Table:</b> Standard</button>
+        <button class="macro-btn" onclick="insertMacro('deluxe')"><b>Table:</b> AASTeX Deluxetable</button>
+        <div style="font-size:11px; color:#888; margin: 12px 0 6px 0; font-weight:700; letter-spacing:1px;">MATH & TEXT</div>
+        <button class="macro-btn" onclick="insertMacro('eq')"><b>Math:</b> Equation Environment</button>
+        <button class="macro-btn" onclick="insertMacro('list')"><b>Text:</b> Itemize List</button>
+        <button class="macro-btn" onclick="insertMacro('box')"><b>Style:</b> Colored Box</button>
+        <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+        <div class="local-info">
+          <b>💻 Local Compilation on Your Own Laptop (Optional)</b><br>
+          For faster builds and offline use, install the local compiler:<br><br>
+          <b style="color:#4fc1ff">Step 1</b> — Install pipx (one-time-only task, cross-platform commands):<br>
+          <code class="local-code">pip install pipx</code><br>
+          <code class="local-code">pipx ensurepath</code><br><br>
+          <b style="color:#4fc1ff">Step 2</b> — Restart your terminal, then:<br>
+          <code class="local-code">pipx install git+https://github.com/pmarcum/gooTeX.git</code><br><br>
+          <b style="color:#4fc1ff">Step 3</b> — Launch any time by typing:<br>
+          <code class="local-code">gootex-gui</code><br><br>
+          <span style="color:#666; font-size:10px;">No admin privileges required. Works on Mac, Windows, and Linux.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="status-hud">READY</div>
+  <div id="ai-modal" style="display:none; position:fixed; top:10%; left:10%; right:10%; bottom:15%; background:#252526; border:1px solid #0e639c;
+        z-index:2000; padding:15px; border-radius:8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); overflow:hidden; flex-direction:column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:10px; flex-shrink:0;">
+      <span style="font-weight:bold; color:#4fc1ff; font-size:12px;">🤖 GEMINI ANALYSIS</span>
+      <button onclick="closeAiModal()" style="background:none; border:none; color:#aaa; cursor:pointer; font-size:20px; line-height:1;">&times;</button>
+    </div>
+    <div id="ai-conversation" style="flex:1; overflow-y:auto; margin-bottom:8px;"></div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; flex-shrink:0; margin-bottom:8px;">
+      <span id="copy-status" style="font-size:11px; color:#4caf50; opacity:0; transition:opacity 0.3s; align-self:center;">Copied!</span>
+      <button onclick="copyAiSolution()" style="background:#0e639c; color:white; border:none; padding:6px 12px; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold;">COPY FIX</button>
+    </div>
+    <div id="ai-followup-area" style="display:none;">
+      <div id="ai-followup-row">
+        <input id="ai-followup-input" type="text" placeholder="Ask a follow-up question..." onkeydown="if(event.key==='Enter')sendFollowup()">
+        <button id="ai-followup-send" onclick="sendFollowup()">SEND</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentTab     = 'log';
+    var systemBusy     = false;
+    var geminiApiKey   = "";
+    var geminiModel       = "";
+    var geminiModelBackup = "gemini-flash-latest";
+    var isSuccessState = false; // Flag to keep Success button visible
+    var aiHistory      = [];   // Conversation history for Gemini follow-up chat
+    var highlightClearTimer = null;
+    const helpStrings = {
+      'log': 'Click entry to jump to document location',
+      'refs': 'Use Auth/Yr/Title/Journal combo, or Keyword',
+      'figs': 'Click on REF & SEC to cite Figure & Section.',
+      'tables': 'Click on REF & SEC to cite Table & Section',
+      'sects': 'Click Ref to cite Section',
+      'snip': 'Insert LaTeX templates'
+    };
+    const statusHints = {
+      'log': '✨ Ready',
+      'snip': '💡 Tip: Click "+ADD" to save your own snippets',
+      'figs': '💡 Tip: Click caption text to expand view',
+      'tables': '💡 Tip: Click caption text to expand view',
+      'refs': '💡 Tip: Click "Cite" to insert reference'
+    };
+
+    function setSystemBusy(isBusy) {
+      systemBusy = isBusy;
+      if (isBusy) document.body.classList.add('busy');
+      else document.body.classList.remove('busy');
+    }
+
+    function switchTab(id) {
+      maybePingBibMan();
+      if (highlightClearTimer) { clearTimeout(highlightClearTimer); highlightClearTimer = null; }
+      google.script.run.dispatch('clearAllErrorHighlights');
+      currentTab = id;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + id).classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById('content-' + id).classList.add('active');
+      document.getElementById('help-panel').innerText = helpStrings[id] || "";
+      var ph = {'refs': 'a:smith y:2020- t:spiral j:apj', 'figs': 'Search labels or captions', 'tables': 'Search labels or captions', 'sects': 'Search labels or titles', 'log': 'Search error/warning log', 'snip': 'Search templates'};
+      document.getElementById('universal-filter').placeholder = ph[id] || "Filter...";
+      applyFilter();
+      /* FIX: Only clear status if NOT Success AND NOT Busy */
+      if (!isSuccessState && !systemBusy) updateStatus("");
+    }
+
+    /* === FAIL-SAFE INITIALIZATION === */
+    function fetchData() {
+      if (systemBusy) return;
+      setSystemBusy(true);
+      document.getElementById('progress-bar').style.display = 'block';
+      var logArea = document.getElementById('log-list');
+      logArea.innerHTML = "<div style='padding:40px 20px; text-align:center; color:#888;'><div style='font-size:24px; margin-bottom:15px; animation: pulse 1.5s infinite;'>📡</div><div style='font-size:14px; font-weight:600; color:#d4d4d4; margin-bottom:8px;'>Connecting to compiler...</div></div>";
+      var watchdog = setTimeout(function() { if (systemBusy) render({ status: "offline", log: "Connection Timed Out" }, false); }, 180000);
+      google.script.run
+        .withSuccessHandler(function(data) {
+          clearTimeout(watchdog);
+          updateStatus("");
+          render(data, false);
+        })
+        .withFailureHandler(function(e) {
+          clearTimeout(watchdog);
+          render({ status: "offline", log: "Load Failed: " + e.message }, false);
+        })
+        .dispatch('getSidebarState');
+    }
+
+    function manualRefresh() {
+      maybePingBibMan();
+      if (systemBusy) return;
+      setSystemBusy(true);
+     // SMART REFRESH: Use Fast Lane for Data Tabs
+      if (['refs', 'figs', 'tables', 'sects'].includes(currentTab)) {
+         updateStatus("Scanning Doc...");
+         var watchdog = setTimeout(function() { if (systemBusy) { render({ status: "offline", log: "Timeout" }, false); } }, 30000);
+         google.script.run
+           .withSuccessHandler(data => {
+              clearTimeout(watchdog);
+              render(data, false);
+              // Feedback flash so user knows it worked
+              updateStatus("✅ Structure Updated");
+              setTimeout(function() { if(!systemBusy) updateStatus(""); }, 2000);
+           })
+           .withFailureHandler(function(err) {
+              clearTimeout(watchdog);
+              setSystemBusy(false);
+              updateStatus("Fast Refresh failed: " + err.message);
+           })
+           .dispatch('getFastAssets');
+      } else {
+         // STANDARD REFRESH: Full Python Round-Trip
+         updateStatus("Refreshing...");
+         var watchdog = setTimeout(function() { if (systemBusy) { render({ status: "offline", log: "Timeout" }, false); } }, 60000);
+         google.script.run
+           .withSuccessHandler(data => {
+              clearTimeout(watchdog);
+              render(data, false);
+           })
+           .withFailureHandler(function(err) {
+              clearTimeout(watchdog);
+              setSystemBusy(false);
+              updateStatus("Refresh failed; " + err.message);
+           })
+           .dispatch('getSidebarState', true);
+      }
+    }
+
+    /* === COMPILE PDF (60s Safety) === */
+    function compilePdf() {
+      if (highlightClearTimer) { clearTimeout(highlightClearTimer); highlightClearTimer = null; }
+      google.script.run.dispatch('clearAllErrorHighlights');
+      maybePingBibMan();
+      if (systemBusy) return;
+      setSystemBusy(true);
+      isSuccessState = false;
+      updateStatus("Building PDF...");
+      setTimeout(function() {
+          if (systemBusy) { setSystemBusy(false); updateStatus("Status Delayed. Check Drive."); }
+      }, 60000);
+      function attemptCompile(retriesLeft) {
+        google.script.run.withSuccessHandler(function(data) {
+          if (data && data.status === 'busy') {
+            if (retriesLeft > 0) {
+              updateStatus("⏳ Server busy — retrying in 15s... (" + retriesLeft + " attempts left)");
+              setTimeout(function() { attemptCompile(retriesLeft - 1); }, 15000);
+            } else {
+              setSystemBusy(false);
+              updateStatus("⚠️ Server busy — please try again shortly.");
+            }
+          } else {
+            if (data) render(data, true);
+          }
+        }).withFailureHandler(function(err) {
+          setSystemBusy(false);
+          if (err.message.includes("Connection") || err.message.includes("timeout")) {
+            render({status:'offline'}, true);
+          } else {
+            updateStatus("Error: " + err.message);
+          }
+        }).dispatch('taskCompile');
+      }
+      attemptCompile(3);  // Try up to 3 times, 15 seconds apart
+    }
+
+    function attemptOpenPdf(docName) {
+        /* === SMART PDF OPENER (Hybrid) === */
+        if (!docName) return;
+        // Visual feedback that we are looking for the specific project PDF
+        updateStatus("Locating PDF...");
+        google.script.run
+            .withSuccessHandler(function(url) {
+                updateStatus(""); // Clear status
+                if (url) {
+                    window.open(url, '_blank');
+                } else {
+                    // Compliance: Do not fall back to generic Drive search.
+                    // If recursiveFindInfo couldn't find it in 'Compiled', it likely doesn't exist.
+                    alert("PDF not found in 'Compiled' folder.\n\nCheck if the compilation finished successfully.");
+                }
+            })
+            .withFailureHandler(function(e) {
+                updateStatus("");
+                alert("Error opening PDF: " + e.message);
+            })
+            .dispatch('getPdfUrl');
+    }
+
+    function renderOfflineDashboard(reason) {
+      updateStatus("");
+      setSystemBusy(false);
+      document.body.classList.add('offline-alert');
+      switchTab('log');
+      const container = document.getElementById('log-list');
+      const displayMsg = reason || "Compiler Server Offline";
+      container.innerHTML =
+        "<div style='padding:20px; text-align:center; color:#ccc;'>" +
+           "<h3 style='color:#ff4444;'>📡 COMPILER SERVER OFFLINE</h3>" +
+           "<p style='font-size:12px; color:#d4d4d4; line-height:1.4;'>" +
+             "The GooTeX compiler server is not responding.<br><br>" +
+             "<b>How to fix:</b><br>" +
+             "The server runs automatically — if it is offline, please contact your system administrator." +
+           "</p>" +
+           "<p style='font-size:10px; color:#888; margin-top:15px;'>Diagnostic: " + displayMsg + "</p>" +
+        "</div>";
+    }
+
+    function renderUpdateBanners(data) {
+      // Only update banners if this response includes version check data
+      if (data.coreUpdateAvailable === undefined &&
+        data.attachedUpdateAvailable === undefined) return;
+      var container = document.getElementById('update-banners');
+      if (!container) return;
+      container.innerHTML = '';
+      var banners = [
+        {
+          flag:    'coreUpdateAvailable',
+          notes:   'coreNotes',
+          version: 'latestCore',
+          key:     'core',
+          cls:     'update-banner-core',
+          label:   '🔧 Core Library Update'
+        },
+        {
+          flag:    'attachedUpdateAvailable',
+          notes:   'attachedNotes',
+          version: 'latestAttached',
+          key:     'attached',
+          cls:     'update-banner-client',
+          label:   '📄 Attached Script Update'
+        }
+      ];
+      banners.forEach(function(b) {
+        if (!data[b.flag]) return;
+        var version  = data[b.version] || '';
+        var dismissKey = 'GOOTEX_DISMISSED_' + b.key.toUpperCase() + '_v' + version;
+        if (localStorage.getItem(dismissKey)) return;
+        var div = document.createElement('div');
+        div.className = 'update-banner ' + b.cls;
+        div.innerHTML =
+          "<div><b>" + b.label + " available</b><br>" + (data[b.notes] || "") + "</div>" +
+          "<button class='update-banner-dismiss' onclick='dismissBanner(\"" + dismissKey + "\", this)' title='Dismiss'>✕</button>";
+        container.appendChild(div);
+      });
+    }
+
+    function dismissBanner(key, btn) {
+      localStorage.setItem(key, 'true');
+      var banner = btn.closest('.update-banner');
+      if (banner) banner.remove();
+    }
+
+    function render(data, isCompile) {
+      try {
+          if (!data) throw new Error("No data received"); // Safety Check
+          // 📢 INTEGRATED BROADCAST (Update Alerts)
+          if (data.broadcast) {
+            var helpPanel = document.getElementById('help-panel');
+            helpPanel.innerHTML = "✨ " + data.broadcast;
+            helpPanel.style.background = "#f1c40f"; // Yellow background
+            helpPanel.style.color = "#000";         // Black text
+            helpPanel.style.fontWeight = "bold";
+          }
+          // Render update banners if any component has an update available
+          renderUpdateBanners(data);
+          document.body.classList.remove('offline-alert');
+          var logList = document.getElementById('log-list');
+          if (logList) logList.innerHTML = '';
+          if (data.full_hud) {
+              var hud = document.getElementById('status-hud');
+              hud.innerText = data.full_hud;
+              hud.title = "Last compile info with word and page counts";
+          }
+          if (data.status === "offline") {
+              renderOfflineDashboard(data.log);
+              return;
+          }
+          /* === GLOBAL STATUS UPDATE (ROW 3) === */
+          var statusDeck = document.getElementById('status-msg');
+          /* Only show Green Banner if this was an ACTIVE COMPILE */
+          if (isCompile && data.status !== "error") {
+              isSuccessState = true;
+              switchTab('log');
+              var docName = (data.doc_name || "draft").replace(/"/g, "&quot;"); // SANITIZE QUOTES
+              var statusHtml = "<div style='display:flex; align-items:center; gap:8px;'>";
+              statusHtml += "<span style='color:#4caf50; font-weight:700;'>✅ Success</span>";
+              statusHtml += "<button onclick='attemptOpenPdf(\"" + docName + "\")' style='background-color:#2e7d32; color:white; border:none; padding:1px 8px; border-radius:3px; cursor:pointer; font-weight:bold; font-size:11px; height:20px;'>Open PDF</button>";
+              statusHtml += "</div>";
+              statusDeck.innerHTML = statusHtml;
+              document.getElementById('progress-bar').style.display = 'none';
+          } else if (data.status !== "error") {
+              if (!isSuccessState) updateStatus("");
+          } else {
+              isSuccessState = false;
+              updateStatus("");
+          }
+          /* === LOG PROCESSING (Unified Logic) === */
+          if (data.log) {
+            data.log.split('\n').forEach(line => {
+              if (!line.trim()) return;
+              var li = document.createElement('div');
+              var parts = line.split(':');
+              if (parts.length < 3) return;
+              var hasHTML = line.indexOf("\x3Cdiv style=") > -1;
+              var lineNum = parts[1];
+              var isError = line.toLowerCase().indexOf('error') > -1;
+              li.className = "asset-item filter-item " + (isError ? "log-error" : "log-warn");
+              var rawMsg = hasHTML ? (parts[3] || "LaTeX Error") : parts.slice(3).join(':');
+              var cleanMsgAI = rawMsg.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+              var htmlContext = hasHTML ? parts.slice(4).join(':') : "";
+              li.innerHTML =
+                "<div style='display:flex; justify-content:space-between; align-items:flex-start;'>" +
+                  "<div onclick='selectLogItem(this); safeJump("+ lineNum + ")' style='flex:1; cursor:pointer;'>" +
+                    "<span class='badge-lint'>" + (hasHTML ? "L" : "¶") + lineNum + "</span> " +
+                    "<span>" + rawMsg + "</span>" +
+                    (hasHTML ? htmlContext : "") +
+                  "</div>" +
+                  "<button onclick=\"askAI(this, '" + cleanMsgAI + "', " + lineNum + ")\" " +
+                  "style='background:none; border:none; cursor:pointer; font-size:14px; padding:0 4px;' title='Ask AI for help'>🤖</button>" +
+                "</div>";
+              logList.appendChild(li);
+            });
+          }
+          /* === SAFE ASSET RENDERING === */
+          var assets = data.assets || {};
+          if (!isCompile) {
+              if (assets.references && assets.references.length > 0) renderRefs(assets.references);
+              if (assets.figures && assets.figures.length > 0) renderFigs(assets.figures, 'fig-list', 'fig');
+              if (assets.tables && assets.tables.length > 0) renderFigs(assets.tables, 'table-list', 'tab');
+              if (assets.sections && assets.sections.length > 0) renderSects(assets.sections);
+          }
+          applyFilter();
+      } catch (e) {
+          console.error("Render Crash: " + e.message);
+          document.getElementById('status-msg').innerText = "Render Error: " + e.message;
+      } finally {
+          setSystemBusy(false);
+      }
+    }
+
+    function selectLogItem(el) {
+      document.querySelectorAll('.asset-item').forEach(item => item.classList.remove('log-selected'));
+      var container = el.closest('.asset-item');
+      if (container) container.classList.add('log-selected');
+    }
+
+    function renderRefs(list) {
+      var container = document.getElementById('ref-list'); container.innerHTML = '';
+      if (!list || list.length === 0) {
+        container.innerHTML = '<div style="padding:10px; color:#666;">No references found.</div>';
+        return;
+      }
+      var frequent = list.filter(r => r.used === true);
+      var others = list.filter(r => r.used !== true);
+      if (frequent.length > 0) {
+        container.innerHTML += '<div id="cited-header" style="font-size:10px; color:#ffd700; font-weight:bold; margin:8px 4px 4px 4px; letter-spacing:1px;">⭐ CITED IN DOCUMENT</div>';
+        frequent.forEach(r => { container.appendChild(createRefCard(r, true)); });
+        container.innerHTML += '<hr style="border:0; border-top:1px solid #444; margin:10px 0;">';
+      }
+      others.forEach(r => { container.appendChild(createRefCard(r, false)); });
+    }
+
+    function createRefCard(item, isStar) {
+      var div = document.createElement('div');
+      div.className = 'asset-item filter-item' + (isStar ? ' frequent' : '');
+      div.style.display = "block"; div.style.position = "relative";
+      if (isStar) { div.style.borderLeft = "4px solid #ffd700"; div.style.backgroundColor = "#2d2d22"; }
+      else { div.style.borderLeft = "4px solid transparent"; }
+
+      var smartLabel = item.key;
+      if (item.author && item.year) {
+           var auths = item.author.split(' and ');
+           /* FIX: Removed bad escape, just clear braces */
+           var lastName = auths[0].split(',')[0].trim().replace(new RegExp("[{}]", "g"), "");
+           smartLabel = lastName + (auths.length > 1 ? '+' : '') + item.year;
+      }
+      var details = [];
+      if (item.title) details.push('<i>' + item.title + '</i>');
+      if (item.journal) details.push(item.journal);
+      if (item.volume) details.push(item.volume);
+      if (item.pages) details.push(item.pages);
+
+      /* Safe Regex */
+      div.dataset.author = (item.author || "").replace(new RegExp("[^a-zA-Z\\s]", "g"), "").toLowerCase();
+      div.dataset.title = (item.title || "").toLowerCase();
+      div.dataset.year = item.year || "0";
+      div.dataset.journal = [item.journal, item.volume, item.pages].join(" ").toLowerCase();
+      div.dataset.fulltext = [item.key, item.title, item.journal, item.volume, item.pages, item.year, item.author].join(" ").toLowerCase();
+
+      div.innerHTML = "<button class='btn-insert' title='Insert Reference' onclick='insertRef(\"" + item.key + "\", \"cite\")'>Cite</button><div class='ref-details'><span class='smart-label'>" + smartLabel + "</span>, " + details.join(', ') + "</div>";
+      return div;
+    }
+
+    function renderFigs(list, containerId, type) {
+      var container = document.getElementById(containerId); container.innerHTML = '';
+      (list || []).forEach(item => {
+        var div = document.createElement('div'); div.className = 'asset-item filter-item';
+        var thumbId = 'thumb-' + (item.label || Math.random().toString(36).substr(2,9));
+        var btnRow = "<div class='btn-corner-tuck'><button class='btn-vert btn-v-blue' title='Insert Reference' onclick='insertRef(\"" + item.label + "\", \"" + type + "\")' " + (item.label ? '' : 'disabled') + ">REF</button><button class='btn-vert btn-v-purple' title='Insert Section Ref' onclick='insertRef(\"" + item.section_ref + "\", \"sec\")' " + (item.section_ref ? '' : 'disabled') + ">SEC</button></div>";
+        if (type === 'tab') {
+          div.innerHTML = "<div style='border-bottom:1px solid #3c3c3c; margin-bottom:4px; padding-bottom:2px;'><span style='color:#4ec9b0; font-family:monospace; font-size:11px;'>" + (item.label || 'No Label') + "</span></div><div style='font-weight:400; color:#e0e0e0; font-size:12px; margin-bottom:2px; letter-spacing:0.5px;'>" + (item.caption || "Untitled Table") + "</div><div class='item-content'><div class='caption-text wide' onclick='this.classList.toggle(\"expanded\")'>" + (item.comments || "No additional details.") + "</div>" + btnRow + "</div>";
+        } else {
+          div.innerHTML = "<div class='thumb-box'><div class='thumb-label'>" + (item.label || 'No Label') + "</div><span class='thumb-placeholder' style='font-size:30px;'>🖼️</span><img id='" + thumbId + "' class='thumb-img'></div><div class='item-content'><div class='caption-text' onclick='this.classList.toggle(\"expanded\")'>" + (item.caption || "No caption") + "</div>" + btnRow + "</div>";
+        }
+        div.dataset.fulltext = (item.label + " " + (item.caption || "")).toLowerCase();
+        container.appendChild(div);
+        if (type !== 'tab' && item.filename) {
+          google.script.run.withSuccessHandler(b64 => { if(b64){ var img=document.getElementById(thumbId); if(img){img.src=b64; img.style.display='block'; img.previousElementSibling.style.display='none';}} }).dispatch('getThumbnailBase64', item.filename);
+        }
+      });
+    }
+
+    function renderSects(list) {
+      var container = document.getElementById('sect-list'); container.innerHTML = '';
+      (list || []).forEach(s => {
+        var div = document.createElement('div'); div.className = 'asset-item filter-item';
+        // Determine indent and color
+        var indent = "0px";
+        var sType = s.type || "";
+        div.style.borderLeft = "3px solid #569cd6"; // Default blue (Section)
+        // Indentation logic - deepest is first
+        if (sType.indexOf('ssubsubsub') > -1 || sType.indexOf('paragraph') > -1) {
+          // Level 4: sub-sub-sub / paragraph
+          div.style.borderLeft = "3px solid #9cdcfe";  // light blue-gray
+          indent = "36px";
+        } else if (sType.indexOf('subsub') > -1) {
+          // level 3: sub-sub section
+          div.style.borderLeft = "3px solid #ce9178"; // Brown
+          indent = "24px";
+        } else if (sType.indexOf('sub') > -1) {
+          // Level 2: sub-section
+          div.style.borderLeft = "3px solid #4ec9b0"; // Teal
+          indent = "12px";
+        }
+        // Apply indent
+        div.style.marginLeft = indent;
+        div.style.width = "calc(100% - " + indent + ")"; // Shrink width so it doesn't overflow
+        div.innerHTML = "<b>" + s.title + "</b><br><span style='font-size:11px; opacity:0.6;'>" +
+            (s.label || "") +
+            "</span><button class='btn-insert' title='Insert Reference' onclick='insertRef(\"" +
+            (s.label || "") +
+            "\", \"sec\")' " + (s.label ? '' : 'disabled') + ">Ref</button>";
+        div.dataset.fulltext = (s.title + " " + s.label).toLowerCase();
+        container.appendChild(div);
+      });
+    }
+
+    function applyFilter() {
+      var raw = document.getElementById('universal-filter').value.toLowerCase().trim();
+      var activeContainer = document.getElementById('content-' + currentTab);
+      if (!activeContainer) return;
+      var items = activeContainer.querySelectorAll('.filter-item');
+      if (!raw) { items.forEach(el => el.classList.remove('hidden')); return; }
+
+      /* Safe Regex Construction */
+      var terms = raw.match(new RegExp("(?:[a-z]:\\s*[^ ]+|[^ ]+)", "g")) || [];
+      var crit = { author: null, title: null, year: null, journal: null, generic: [] };
+
+      for(var i=0; i<terms.length; i++) {
+          var term = terms[i];
+          /* Safe Regex Matching */
+          if (term.match(new RegExp("^a:\\s?"))) {
+              crit.author = term.replace(new RegExp("^a:\\s?"), '').trim();
+          } else if (term.match(new RegExp("^t:\\s?"))) {
+              crit.title = term.replace(new RegExp("^t:\\s?"), '').trim();
+          } else if (term.match(new RegExp("^j:\\s?"))) {
+              crit.journal = term.replace(new RegExp("^j:\\s?"), '').trim();
+          } else if (term.match(new RegExp("^y:\\s?")) || term.match(new RegExp("^\\d{4}-?$")) || term.match(new RegExp("^\\d{4}-\\d{4}$"))) {
+              var yVal = term.replace(new RegExp("^y:\\s?"), '').trim();
+              if (yVal.endsWith('-')) { yVal += "9999"; }
+              crit.year = yVal;
+          } else {
+              crit.generic.push(term);
+          }
+      }
+
+      items.forEach(el => {
+        var match = true;
+        if (crit.generic.length > 0) {
+           var ft = el.dataset.fulltext || "";
+           match &= crit.generic.every(t => ft.indexOf(t) > -1);
+        }
+        if (match && crit.author) match &= (el.dataset.author || "").startsWith(crit.author);
+        if (match && crit.title) match &= ((el.dataset.title || "").indexOf(crit.title) > -1);
+        if (match && crit.journal) match &= ((el.dataset.journal || "").indexOf(crit.journal) > -1);
+        if (match && crit.year) {
+            var itemYear = parseInt(el.dataset.year || "0");
+            if (crit.year.indexOf('-') > -1) {
+                var range = crit.year.split('-');
+                var start = parseInt(range[0]);
+                var end = parseInt(range[1]);
+                if (!isNaN(start) && !isNaN(end)) { match &= (itemYear >= start && itemYear <= end); }
+            } else { match &= (itemYear === parseInt(crit.year)); }
+        }
+        el.classList.toggle('hidden', !match);
+      });
+    }
+
+    function insertRef(key, type) {
+      maybePingBibMan();
+      // ⚡ SNAP-ACTION: Apply the "Used" style immediately (No waiting)
+      if (type === 'cite') {
+        const cards = document.querySelectorAll('.asset-item');
+        for (let card of cards) {
+            if (card.dataset.fulltext && card.dataset.fulltext.indexOf(key.toLowerCase()) > -1) {
+                card.style.borderLeft = "4px solid #ffd700";
+                card.style.backgroundColor = "#2d2d22";
+                const refList = document.getElementById('ref-list');
+                if (refList) {
+                    // Find or create cited header
+                    let citedHeader = document.getElementById('cited-header');
+                    if (!citedHeader) {
+                        citedHeader = document.createElement('div');
+                        citedHeader.id = 'cited-header';
+                        citedHeader.style.cssText = 'font-size:10px; color:#ffd700; font-weight:bold; margin:8px 4px 4px 4px; letter-spacing:1px;';
+                        citedHeader.innerText = '⭐ CITED IN DOCUMENT';
+                        refList.insertBefore(citedHeader, refList.firstChild);
+                    }
+                    // Get sort key for the card being inserted
+                    const newKey = (card.querySelector('.smart-label') || {innerText:''}).innerText.toLowerCase();
+                    // Find correct alphabetical insertion point within cited section
+                    let insertAfter = citedHeader;
+                    let sibling = citedHeader.nextElementSibling;
+                    while (sibling && sibling.tagName !== 'HR') {
+                        if (sibling.classList.contains('asset-item')) {
+                            const sibKey = (sibling.querySelector('.smart-label') || {innerText:''}).innerText.toLowerCase();
+                            if (sibKey <= newKey) {
+                                insertAfter = sibling;
+                            } else {
+                                break;
+                            }
+                        }
+                        sibling = sibling.nextElementSibling;
+                    }
+                    insertAfter.insertAdjacentElement('afterend', card);
+                }
+                break;
+            }
+        }
+      }
+      // 🚀 ASYNC COMMAND: Send to Google Doc immediately.
+      // We REMOVE setSystemBusy(true) so you can keep clicking while it writes.
+      const cmd = type === 'cite' ? key :
+                  type === 'fig' ? "Fig.~\\ref{" + key + "}" :
+                  type === 'tab' ? "Table~\\ref{" + key + "}" : "\\S\\ref{" + key + "}";
+      google.script.run.dispatch('taskInsertTextAtCursor', cmd);
+    }
+
+    function insertMacro(type) {
+      maybePingBibMan();
+      if (systemBusy) return;
+      setSystemBusy(true);
+      let snippet = "";
+      switch(type) {
+        case 'fig': snippet = "\\begin{figure}[ht]\n   \\centering\n   \\includegraphics[width\\columnwidth]{file}\n   \\caption{...}\n   \\label{fig:}\n\\end{figure}"; break;
+        case 'subfig': snippet = "\\begin{figure}[ht]\n  \\centering\n  \\begin{subfigure}{0.49\\textwidth}\n      \\centering\n      \\includegraphics[width=\\linewidth]{file1}\n      \\caption{Left}\n      \\label{fig:left}\n  \\end{subfigure}\n  \\hfill\n  \\begin{subfigure}{0.49\\textwidth}\n      \\centering\n      \\includegraphics[width=\\linewidth]{file2}\n      \\caption{Right}\n      \\label{fig:right}\n  \\end{subfigure}\n  \\caption{...}\n  \\label{fig:}\n\\end{figure}"; break;
+        case 'tab': snippet = "\\begin{table}[ht]\n  \\centering\n  \\begin{tabular}{cc}\n      \\hline\\hline\n      A & B \\\\\n      \\hline\n      1 & 2 \\\\\n      \\hline\n  \\end{tabular}\n  \\caption{...}\n  \\label{tab:}\n\\end{table}"; break;
+        case 'deluxe': snippet = "\\begin{deluxetable}{cc}\n  \\tablecaption{... \\label{tab:}}\n  \\tablewidth{0pt}\n  \\tablehead{\n     \\colhead{Header 1} & \\colhead{Header 2}\n  }\n  \\startdata\n     Data & Data \\\\\n  \\enddata\n  \\tablecomments{...}\n\\end{deluxetable}"; break;
+        case 'eq': snippet = "\\begin{equation}\n   \\label{eq:}\n   E = mc^2\n\\end{equation}"; break;
+        case 'list': snippet = "\\begin{itemize}\n   \\item \n   \\item \n\\end{itemize}"; break;
+        case 'box': snippet = "\\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black, title=Key, arc=2mm]\n  Summarize context here.\n\\end{tcolorbox}"; break;
+      }
+      google.script.run.withSuccessHandler(() => setSystemBusy(false)).dispatch('taskInsertTextAtCursor', snippet);
+    }
+
+    /* === CUSTOM SHORTCUTS MANAGER === */
+    function loadCustomSnippets() {
+      var container = document.getElementById('custom-list');
+      container.innerHTML = "";
+      var raw = localStorage.getItem("GOOTEX_MY_SNIPS");
+      var list = raw ? JSON.parse(raw) : [];
+      if (list.length === 0) {
+        container.innerHTML = "<div style='font-size:11px; color:#555; font-style:italic; padding:5px;'>No custom shortcuts yet. Click + Add.</div>";
+        return;
+      }
+
+      list.forEach(function(item, idx) {
+        var row = document.createElement('div');
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.gap = "4px";
+        row.style.marginBottom = "6px";
+        // The Action Button
+        var btn = document.createElement('button');
+        btn.className = "macro-btn";
+        btn.style.marginBottom = "0";
+        btn.style.flex = "1";
+        btn.innerHTML = "<b>" + item.label + "</b>";
+        btn.onclick = function() {
+            // Send the saved code to the Doc
+            google.script.run.withSuccessHandler(() => setSystemBusy(false)).dispatch('taskInsertTextAtCursor', item.code);
+        };
+        // The Delete X
+        var del = document.createElement('button');
+        del.innerHTML = "&times;";
+        del.style.background = "none";
+        del.style.border = "none";
+        del.style.color = "#666";
+        del.style.cursor = "pointer";
+        del.style.fontSize = "16px";
+        del.onclick = function() { deleteSnippet(idx); };
+        row.appendChild(btn);
+        row.appendChild(del);
+        container.appendChild(row);
+      });
+    }
+
+    function addCustomSnippet() {
+      var label = prompt("Short Label (e.g. 'My Matrix'):");
+      if (!label) return;
+      // Note: We use a simple prompt here. For multi-line LaTeX code,
+      // users might need to copy-paste the code block into this prompt.
+      // JavaScript prompts preserve line breaks (\n).
+      var code = prompt("Paste your LaTeX code here:");
+      if (!code) return;
+      var raw = localStorage.getItem("GOOTEX_MY_SNIPS");
+      var list = raw ? JSON.parse(raw) : [];
+      list.push({ label: label, code: code });
+      localStorage.setItem("GOOTEX_MY_SNIPS", JSON.stringify(list));
+      loadCustomSnippets();
+    }
+
+    function deleteSnippet(index) {
+      if(!confirm("Delete this shortcut?")) return;
+      var raw = localStorage.getItem("GOOTEX_MY_SNIPS");
+      var list = raw ? JSON.parse(raw) : [];
+      list.splice(index, 1);
+      localStorage.setItem("GOOTEX_MY_SNIPS", JSON.stringify(list));
+      loadCustomSnippets();
+    }
+
+    function updateStatus(msg) {
+      var el = document.getElementById('status-msg');
+      if (msg) { el.innerHTML = msg; document.getElementById('progress-bar').style.display = 'block'; }
+      else { el.innerHTML = statusHints[currentTab] || ""; document.getElementById('progress-bar').style.display = 'none'; }
+    }
+
+    function safeJump(lineNum) {
+      maybePingBibMan();
+      if (systemBusy) return;
+      setSystemBusy(true);
+      updateStatus("🏃 Navigating to ¶ " + lineNum + "...");
+      if (highlightClearTimer) { clearTimeout(highlightClearTimer); highlightClearTimer = null; }
+      google.script.run
+        .withSuccessHandler(function() {
+          setSystemBusy(false);
+          updateStatus("");
+          google.script.run.dispatch('highlightErrorParagraph', lineNum);
+          highlightClearTimer = setTimeout(function() {
+            google.script.run.dispatch('clearErrorHighlight', lineNum);
+            highlightClearTimer = null;
+          }, 8000);
+        })
+        .withFailureHandler(function(err) {
+          setSystemBusy(false);
+          updateStatus("Jump failed");
+          console.error(err);
+        })
+        .dispatch('gotoLine', lineNum);
+    }
+
+    function renderAiConversation() {
+      var conv = document.getElementById('ai-conversation');
+      conv.innerHTML = '';
+      aiHistory.forEach(function(turn) {
+        var div = document.createElement('div');
+        if (turn.role === 'user') {
+          div.className = 'ai-turn-user';
+          // Skip the initial system prompt — show only follow-up user turns
+          if (turn._isInitial) return;
+          div.textContent = turn.parts[0].text;
+        } else {
+          div.className = 'ai-turn-ai';
+          div.textContent = turn.parts[0].text;
+        }
+        conv.appendChild(div);
+      });
+      conv.scrollTop = conv.scrollHeight;
+    }
+
+    function askAI(btn, errorMsg, lineNum) {
+      if (lineNum) { safeJump(lineNum); }
+      var originalText = btn.innerHTML;
+      btn.innerHTML = "⏳";
+      btn.disabled = true;
+      var context = btn.previousElementSibling ? btn.previousElementSibling.innerText : errorMsg;
+      if (!geminiApiKey) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert("Gemini AI is not available.\n\nThe Gemini API key has not been set. Contact your administrator to add GEMINI_API_KEY to Config.gs.");
+        return;
+      }
+      // Reset history for fresh invocation
+      aiHistory = [];
+      var promptText = "ACT AS: Technical LaTeX Debugger. CONSTRAINTS: < 50 words. Bulleted shorthand only. NO filler. OUTPUT: 1. Cause. 2. Fix. 3. Warning.\n\nERROR:\n" + errorMsg + "\n\nCONTEXT:\n" + context.slice(-1500);
+      var userTurn = { role: "user", parts: [{ text: promptText }], _isInitial: true };
+      aiHistory.push(userTurn);
+      var modelToUse = geminiModel || geminiModelBackup;
+      fetch("https://generativelanguage.googleapis.com/v1beta/models/" + modelToUse + ":generateContent?key=" + geminiApiKey, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: aiHistory.map(function(t) { return { role: t.role, parts: t.parts }; }) })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        var answer = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
+        aiHistory.push({ role: "model", parts: [{ text: answer }] });
+        renderAiConversation();
+        document.getElementById('ai-modal').style.display = 'flex';
+        document.getElementById('copy-status').style.opacity = "0";
+        document.getElementById('ai-followup-area').style.display = 'block';
+        document.getElementById('ai-followup-input').value = '';
+        document.getElementById('ai-followup-input').focus();
+      })
+      .catch(function(e) {
+        btn.innerHTML = "❌";
+        btn.disabled = false;
+        alert("AI Error: " + e.message);
+      });
+    }
+
+    function sendFollowup() {
+      var input = document.getElementById('ai-followup-input');
+      var text = input.value.trim();
+      if (!text || !geminiApiKey) return;
+      var sendBtn = document.getElementById('ai-followup-send');
+      input.value = '';
+      input.disabled = true;
+      sendBtn.disabled = true;
+      aiHistory.push({ role: "user", parts: [{ text: text }] });
+      renderAiConversation();
+      var modelToUse = geminiModel || geminiModelBackup;
+      fetch("https://generativelanguage.googleapis.com/v1beta/models/" + modelToUse + ":generateContent?key=" + geminiApiKey, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: aiHistory.map(function(t) { return { role: t.role, parts: t.parts }; }) })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var answer = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
+        aiHistory.push({ role: "model", parts: [{ text: answer }] });
+        renderAiConversation();
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+      })
+      .catch(function(e) {
+        aiHistory.pop(); // remove the user turn that failed
+        renderAiConversation();
+        input.disabled = false;
+        sendBtn.disabled = false;
+        alert("AI Error: " + e.message);
+      });
+    }
+
+    function copyAiSolution() {
+      // Collect all AI turns from history
+      var aiTurns = aiHistory.filter(function(t) { return t.role === 'model'; });
+      var text = aiTurns.map(function(t) { return t.parts[0].text; }).join('\n\n---\n\n');
+      const btn = event.target;
+      const originalText = btn.innerText;
+      navigator.clipboard.writeText(text).then(function() {
+        btn.innerText = "COPIED!";
+        btn.style.backgroundColor = "#2e7d32";
+        setTimeout(function() { btn.innerText = originalText; btn.style.backgroundColor = "#0e639c"; }, 1500);
+      });
+    }
+
+    function closeAiModal() {
+      document.getElementById('ai-modal').style.display = 'none';
+      document.getElementById('ai-followup-area').style.display = 'none';
+      document.getElementById('ai-followup-input').value = '';
+      aiHistory = [];
+    }
+
+    function exportZip() {
+      maybePingBibMan();
+      if (systemBusy) return;
+      setSystemBusy(true);
+      updateStatus("Packaging zip file...");
+      google.script.run
+        .withSuccessHandler(function(data) {
+           if (data.status === 'success') {
+             // Success: Now fetch the URL for the specific file
+             updateStatus("Fetching zip file URL link...");
+             google.script.run.withSuccessHandler(function(url) {
+                 setSystemBusy(false);
+                 // 1. Set the text FIRST (in case this triggers the bar)
+                 if (url) {
+                    var linkHtml = "✅ <a href='" + url +
+                        "' target='_blank' style='color:#4fc1ff; text-decoration:underline; cursor:pointer;'>OPEN ZIP FILE</a>";
+                    updateStatus(linkHtml);
+                 } else {
+                    updateStatus("✅ Zip created in 'Compiled'");
+                 }
+                 // 2. FORCE HIDE the bar LAST (to guarantee it stays off)
+                 document.getElementById('progress-bar').style.display = 'none';
+             }).dispatch('getZipUrl', data.zip_filename);
+           } else {
+             setSystemBusy(false);
+             updateStatus("Export Failed");
+             alert("Error: " + data.log);
+             document.getElementById('progress-bar').style.display = 'none';
+           }
+        })
+        .withFailureHandler(function(e) {
+           setSystemBusy(false);
+           updateStatus("Error: " + e.message);
+           document.getElementById('progress-bar').style.display = 'none';
+        })
+        .dispatch('taskZip');
+    }
+
+    function toggleMarkers() {
+      maybePingBibMan();
+      if (systemBusy) return;
+      setSystemBusy(true);
+      updateStatus("Toggling Paragraph #s...");
+      google.script.run
+        .withSuccessHandler(function() {
+          setSystemBusy(false);
+          updateStatus("");
+        })
+        .withFailureHandler(function(e) {
+          setSystemBusy(false);
+          alert("Error: " + e.message);
+        })
+        .dispatch('taskToggleMarkers');
+    }
+
+    function maybePingBibMan() {
+      // Debounce: only ping if 30+ seconds since last ping
+      var DEBOUNCE_MS  = 30000;
+      var lastPing     = parseInt(localStorage.getItem("GOOTEX_BIBMAN_LAST_PING") || "0");
+      var now          = Date.now();
+      var elapsed      = now - lastPing;
+      if (elapsed < DEBOUNCE_MS) {
+        console.log("📚 BibMan ping SKIPPED — only " + Math.round(elapsed/1000) + "s since last ping (need 30s)");
+        return; // too soon — skip
+      }
+      console.log("📚 BibMan ping FIRING — " + Math.round(elapsed/1000) + "s since last ping");
+      // Record ping time immediately so concurrent interactions don't double-ping
+      localStorage.setItem("GOOTEX_BIBMAN_LAST_PING", String(now));
+      // Non-blocking GAS call — fire and forget, never blocks UI
+      google.script.run
+        .withSuccessHandler(function(stats) {
+          if (!stats) {
+            console.log("📚 BibMan ping returned null — not a BibMan doc");
+            return; // not a BibMan doc or stats unavailable
+          }
+          var cachedRowid   = localStorage.getItem("GOOTEX_BIBMAN_LAST_ROWID");
+          var cachedLibrary = localStorage.getItem("GOOTEX_BIBMAN_LIBRARY");
+          console.log("📚 BibMan stats: last_rowid=" + stats.last_rowid +
+                      " (cached=" + cachedRowid + ") library=" + stats.library_name);
+          if (stats.last_rowid === cachedRowid && stats.library_name === cachedLibrary) {
+            console.log("📚 BibMan no change — refs up to date");
+            return;  // no change — nothing to do
+          }
+          // Library changed — fetch fresh refs and re-render
+          console.log("📚 BibMan library changed (" + cachedRowid + " → " + stats.last_rowid + ") — refreshing refs...");
+          localStorage.setItem("GOOTEX_BIBMAN_LAST_ROWID",  stats.last_rowid);
+          localStorage.setItem("GOOTEX_BIBMAN_LIBRARY",     stats.library_name);
+          // Trigger GAS to refresh BibMan cache and return fresh refs
+          google.script.run
+            .withSuccessHandler(function(data) {
+              if (data && data.assets && data.assets.references) {
+                renderRefs(data.assets.references);
+                // If user is on refs tab, show subtle update indicator
+                if (currentTab === 'refs') {
+                  updateStatus("📚 Refs updated");
+                  setTimeout(function() { if (!systemBusy) updateStatus(""); }, 2000);
+                }
+              }
+            })
+            .withFailureHandler(function(e) {
+              console.warn("BibMan ref refresh failed: " + e.message);
+            })
+            .dispatch('getFastAssets');  // getFastAssets() calls parseLocalBibliography() which
+                                         // reads BibMan fresh after refreshBibManRefs() cleared cache
+        })
+        .withFailureHandler(function(e) {
+          console.warn("BibMan stats ping failed: " + e.message);
+          // Reset ping time so next interaction tries again
+          localStorage.setItem("GOOTEX_BIBMAN_LAST_PING", "0");
+        })
+        .dispatch('checkBibManStats');
+    }
+
+    /* === KEYBOARD SHORTCUTS === */
+    window.addEventListener('keydown', function(e) {
+      // ALT + ENTER (Compile)
+      if (e.altKey && (e.key === 'Enter' || e.keyCode === 13)) {
+          e.preventDefault(); // Stop default browser behavior
+          e.stopPropagation();
+          compilePdf();
+      }
+      // ALT + R (Refresh)
+      if (e.altKey && (e.key === 'r' || e.key === 'R' || e.keyCode === 82)) {
+          e.preventDefault();
+          e.stopPropagation();
+          manualRefresh();
+      }
+    });
+
+    // --- AUTOMATED SPOTLIGHT HEARTBEAT ---
+    // Runs every 60 seconds. Safe for quotas.
+    // Does NOT freeze the cursor because the server-side function is Read-Only.
+    setInterval(function() {
+       if (systemBusy) return;
+       google.script.run
+         .withSuccessHandler(function() {})
+         .withFailureHandler(function(e) { console.warn("Spotlight skipped"); })
+         .dispatch('triggerSpotlightStyle');
+    }, 60000); // 60 Seconds
+
+    /* OPTIONAL: Auto-Focus Sidebar on Hover */
+    /* This helps capturing keys without clicking */
+    window.onmouseover = function() { window.focus(); };
+    // Replace your window.onload with this version
+    window.onload = function() {
+        fetchData();
+        loadCustomSnippets();
+        google.script.run
+          .withSuccessHandler(function(key) { geminiApiKey = key || ""; })
+          .dispatch('getGeminiKey');
+        google.script.run
+          .withSuccessHandler(function(model) { geminiModel = model || geminiModelBackup; })
+          .dispatch('getGeminiModel');
+    };
+
+  </script>
+</body>
+</html>
