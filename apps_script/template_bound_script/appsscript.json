@@ -1,27 +1,48 @@
 {
   "timeZone": "America/Los_Angeles",
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
   "dependencies": {
-    "enabledAdvancedServices": [{
-      "userSymbol": "Drive",
-      "serviceId": "drive",
-      "version": "v3"
-    }, {
-      "userSymbol": "Docs",
-      "serviceId": "docs",
-      "version": "v1"
-    }],
-    "libraries": [{
-      "userSymbol": "GooTeX_Core_Library",
-      "libraryId": "1mOieOEkX-FXHa2XvTbt26BVz_-0OS5D0h1AeVn0kvhe6mbJgYvFkHEm9",
-      "version": "2"
-    }]
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Drive",
+        "serviceId": "drive",
+        "version": "v3"
+      },
+      {
+        "userSymbol": "Docs",
+        "serviceId": "docs",
+        "version": "v1"
+      }
+    ],
+    "libraries": [
+      {
+        "userSymbol": "GooTeX_Core_Library",
+        "libraryId": "1mOieOEkX-FXHa2XvTbt26BVz_-0OS5D0h1AeVn0kvhe6mbJgYvFkHEm9",
+        "version": "3"
+      }
+    ]
   },
   "webapp": {
-    "access": "ANYONE",
-    "executeAs": "USER_DEPLOYING"
+    "executeAs": "USER_DEPLOYING",
+    "access": "ANYONE"
   },
-  "exceptionLogging": "STACKDRIVER",
-  "oauthScopes": ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/script.container.ui", "https://www.googleapis.com/auth/script.external_request", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/spreadsheets"],
-  "urlFetchWhitelist": ["https://script.google.com/", "https://script.googleusercontent.com/", "https://generativelanguage.googleapis.com/", "https://YOUR-SERVER-DOMAIN-HERE/", "https://raw.githubusercontent.com/pmarcum/gooTeX/main/version.json"],
-  "runtimeVersion": "V8"
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/script.container.ui",
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/spreadsheets"
+  ],
+  "urlFetchWhitelist": [
+    "https://*.ngrok-free.dev/",
+    "https://*.ngrok-free.app/",
+    "https://*.ngrok.io/",
+    "https://script.google.com/",
+    "https://script.googleusercontent.com/",
+    "https://generativelanguage.googleapis.com/",
+    "https://YOUR_SERVER_DOMAIN.org/",
+    "https://raw.githubusercontent.com/pmarcum/gooTeX/main/version.json"
+  ]
 }

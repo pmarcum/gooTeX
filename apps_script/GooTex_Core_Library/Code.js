@@ -1,7 +1,12 @@
-/** * 🦠 GOOTEX CORE LIBRARY **/
+/** * 🦠 GOOTEX CORE LIBRARY
+ * --------------------------------
+ * - NEW: "Fast Lane" (Local-Only Default).
+ * - NEW: "Force Local" for Figures/Tables.
+ * - SEARCH: Recursive Image Search.
+**/
 
 /******************************/
-var GOOTEX_CORE_VERSION   = 2;
+var GOOTEX_CORE_VERSION   = 3;
 /******************************/
 
 function getCoreVersion() {return GOOTEX_CORE_VERSION;}
@@ -56,7 +61,7 @@ function checkVersion() {
     var msgs = [];
     console.log("DEBUG versions — core: " + currentCore + " vs " + latestCore + " | client: " + currentClient + " vs " + latestClient);
     if (latestCore   > currentCore)   msgs.push("• GooTeX Core library: you have v" + currentCore   + ", latest is v" + latestCore   + "\n  → Extensions → Libraries → update GooTeX_Core");
-    if (latestClient > currentClient) msgs.push("• Attached script: you have v" + currentClient + ", latest is v" + latestClient + "\n  → Make a fresh copy of the GooTeX template:\n  " + GOOTEX_TEMPLATE_URL);
+    if (latestClient > currentClient) msgs.push("• Attached script: you have v" + currentClient + ", latest is v" + latestClient + "\n  → Make a fresh copy of the GooTeX template:\n  " + _CONFIG.GOOTEX_TEMPLATE_URL);
     if (msgs.length > 0) {
       DocumentApp.getUi().alert(
         "⚠️ GooTeX Update Available",
