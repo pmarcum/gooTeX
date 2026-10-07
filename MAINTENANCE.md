@@ -37,7 +37,7 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 | Item | Lives in | Notes |
 | :--- | :--- | :--- |
 | `GOOTEX_CREDENTIAL` | server drop-in **+** template `CONFIG` | Shared secret authenticating Apps Script → server. **Must be identical in both.** |
-| `BIBMAN_CREDENTIAL` | server drop-in **+** template `CONFIG` **+** BibMan's own config | Only if BibMan is in use. gooTeX sends it as the `X-BibMan-Credential` header. |
+| `BIBMAN_CREDENTIAL` | server drop-in **+** template `CONFIG` | Only if BibMan is in use. gooTeX sends it as the `X-BibMan-Credential` header. Set it to BibMan's **read-only bibliography-export credential** (BibMan's `EXPORT_CREDENTIAL`) — **not** BibMan's master key — since gooTeX only ever reads bibliographies. It is independent of BibMan's master key, so it rotates without touching it. |
 | `GEMINI_API_KEY` | template `CONFIG` (live path) — optionally also server drop-in (dormant route) | One shared key for the whole group. See §4. |
 | Gemini **model** | library `Config.gs` → `GOOTEX_GEMINI_MODEL` | Live path. The server's hardcoded `gemini-2.5-flash` only matters if the server AI route is lit. |
 | `GOOTEX_SERVER_URL` | template `CONFIG` | The public HTTPS endpoint (ends in `/gootex`). |
@@ -55,7 +55,7 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 3. Update `CONFIG.GOOTEX_CREDENTIAL` in the template's bound script.
    They must match or every compile returns `🔒 Unauthorized` (HTTP 403).
 
-**Rotate `BIBMAN_CREDENTIAL`:** same pattern, and also update BibMan's own config — all three must match.
+**Rotate `BIBMAN_CREDENTIAL`:** it must equal BibMan's read-only `EXPORT_CREDENTIAL`. Generate a new value on the BibMan side, then update it in **both** gooTeX places (server drop-in + template `CONFIG`) and `sudo systemctl restart gootex`. This is independent of BibMan's master key (`GAS_CREDENTIAL`) — rotating one never touches the other.
 
 **Change the Gemini key:** update `CONFIG.GEMINI_API_KEY` in the template's bound script (and the server drop-in too, only if you use the server-side AI route — then restart the service). Rotate the old key in Google AI Studio.
 

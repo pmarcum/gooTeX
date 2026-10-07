@@ -81,7 +81,7 @@ In the override, set your secrets (these live **only** here, never in a committe
 ```ini
 [Service]
 Environment="GOOTEX_CREDENTIAL=<a long random string you generate>"
-Environment="BIBMAN_CREDENTIAL=<only if you run BibMan; must match BibMan's secret>"
+Environment="BIBMAN_CREDENTIAL=<only if you run BibMan; use BibMan's read-only EXPORT_CREDENTIAL, not its master key>"
 # Optional — lights up the server-side AI route (see §5). Most installs leave this unset
 # and let the Apps Script side handle AI instead:
 # Environment="GEMINI_API_KEY=<your Gemini key>"
@@ -154,7 +154,7 @@ Open the copied Doc → **Extensions → Apps Script** → `Config.gs`, and set 
 var CONFIG = {
   GOOTEX_SERVER_URL:      "https://<you>.duckdns.org/gootex",  // from §3.6
   GOOTEX_CREDENTIAL:      "<the exact value from §3.4>",        // MUST match the server
-  BIBMAN_CREDENTIAL:      "<only if using BibMan; match BibMan>",
+  BIBMAN_CREDENTIAL:      "<only if using BibMan; BibMan's read-only EXPORT_CREDENTIAL>",
   GEMINI_API_KEY:         "<your Gemini key; see §5>",
   GOOTEX_ACCESS_SHEET_ID: "<filled in by step 4.4>",
   GOOTEX_TEMPLATE_URL:    "<the make-a-copy URL of THIS template — see §4.7>",

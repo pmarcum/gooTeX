@@ -9,7 +9,9 @@
  *                            (ends in /gootex), e.g. https://you.duckdns.org/gootex
  *   GOOTEX_CREDENTIAL      — shared secret; MUST match GOOTEX_CREDENTIAL in the
  *                            server's systemd drop-in override
- *   BIBMAN_CREDENTIAL      — only if you run BibMan; must match BibMan's secret
+ *   BIBMAN_CREDENTIAL      — only if you run BibMan; set it to BibMan's read-only
+ *                            bibliography-export credential (its EXPORT_CREDENTIAL),
+ *                            NOT BibMan's master key (gooTeX only reads bibliographies)
  *   GEMINI_API_KEY         — Gemini API key for the Log-tab AI assistant
  *                            (see DEPLOY.md §5; leave "" to disable AI)
  *   GOOTEX_ACCESS_SHEET_ID — ID of the allowed_users sheet, produced by
@@ -25,7 +27,7 @@ var CONFIG = {
   GOOTEX_ATTACHED_VERSION:  GOOTEX_ATTACHED_VERSION,
   GOOTEX_SERVER_URL:        "REPLACE_ME_https://you.duckdns.org/gootex",
   GOOTEX_CREDENTIAL:        "REPLACE_ME_must_match_server",
-  BIBMAN_CREDENTIAL:        "REPLACE_ME_or_leave_blank",
+  BIBMAN_CREDENTIAL:        "REPLACE_ME_bibman_EXPORT_CREDENTIAL_or_leave_blank",
   GEMINI_API_KEY:           "REPLACE_ME_or_leave_blank",
   GOOTEX_ACCESS_SHEET_ID:   "REPLACE_ME_sheet_id",
   GOOTEX_TEMPLATE_URL:      "REPLACE_ME_make-a-copy_url_of_THIS_groups_template",

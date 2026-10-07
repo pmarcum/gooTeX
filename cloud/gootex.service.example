@@ -64,7 +64,7 @@ WantedBy=multi-user.target
 #
 #   [Service]
 #   Environment="GOOTEX_CREDENTIAL=REPLACE_ME_long_random_string"
-#   Environment="BIBMAN_CREDENTIAL=REPLACE_ME_only_if_using_BibMan"
+#   Environment="BIBMAN_CREDENTIAL=REPLACE_ME_bibman_read_only_EXPORT_CREDENTIAL"
 #   # Optional — only to use the server-side AI route instead of the
 #   # Apps Script side (most installs leave this unset):
 #   # Environment="GEMINI_API_KEY=REPLACE_ME"
