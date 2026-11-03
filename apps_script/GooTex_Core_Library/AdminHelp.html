@@ -44,34 +44,26 @@
     <code>GOOTEX_SERVER_URL</code> — VM server URL<br>
     <code>GOOTEX_CREDENTIAL</code> — must match GOOTEX_SECRET on the VM<br>
     <code>BIBMAN_CREDENTIAL</code> — BibMan credential (if BibMan is deployed)<br>
-    <code>GOOTEX_ACCESS_SHEET_ID</code> — access spreadsheet ID (see Step 3)<br>
     <code>GEMINI_API_KEY</code> — Google AI Studio API key<br>
     <code>GOOTEX_ATTACHED_VERSION</code> — set to 1<br>
     <code>GOOTEX_TEMPLATE_URL</code> — the "make a copy" URL of THIS template (shown to users when their attached script needs updating)
   </div>
 
   <div class="step">
-    <span class="step-num">Step 3:</span> <b>Create the access spreadsheet</b><br>
-    Run <b>GooTeX &gt; Admin Only &gt; Initialize Drive Folder</b>.<br>
-    A <code>GooTeX_Access</code> spreadsheet will be created and its file ID displayed.<br>
-    Copy that ID into <code>GOOTEX_ACCESS_SHEET_ID</code> in <code>Config.gs</code>.<br>
-    Add authorized user emails to the <code>allowed_users</code> tab, one per row.
-  </div>
-
-  <div class="step">
-    <span class="step-num">Step 4:</span> <b>Verify</b><br>
+    <span class="step-num">Step 3:</span> <b>Verify</b><br>
     Run <b>GooTeX &gt; Admin Only &gt; Check System Status</b>. All items should show ✅.
   </div>
 
   <h2>2. Managing Co-Author Access</h2>
+  <p>There is no access list: anyone who can <b>edit</b> a GooTeX Doc can use GooTeX on it.</p>
   <div class="step">
     <span class="step-num">Add:</span> Use <b>GooTeX &gt; Utilities &gt; Invite Co-Author</b> —
-    Drive access, whitelist entry, and invitation email are handled automatically.
+    it gives the person edit access to the Doc and its project folder, without sending any email, and shows an
+    invitation text to copy into your own email.
+    (Sharing the Doc and folder by hand works just as well.)
   </div>
   <div class="step">
-    <span class="step-num">Remove:</span> Open the <code>GooTeX_Access</code> spreadsheet,
-    delete the email from the <code>allowed_users</code> tab, then run
-    <b>GooTeX &gt; Admin Only &gt; Reset Connection</b> to clear the cached access list.
+    <span class="step-num">Remove:</span> Stop sharing the Doc (and its folder) with them.
   </div>
 
   <h2>3. Troubleshooting</h2>
@@ -80,7 +72,7 @@
     <p>The server restarts automatically after most failures. If it remains offline after 30 seconds, the VM administrator will need to restart the service manually.</p>
     <hr>
     <h3>🅱️ Reset Connection</h3>
-    <p>Run <b>GooTeX &gt; Admin Only &gt; Reset Connection</b> after adding or removing users, updating credentials in <code>Config.gs</code>, or any report of stale sidebar behavior.</p>
+    <p>Run <b>GooTeX &gt; Admin Only &gt; Reset Connection</b> after updating credentials in <code>Config.gs</code>, or any report of stale sidebar behavior.</p>
     <hr>
     <h3>🅲️ Credentials Not Working</h3>
     <p>If <b>Check System Status</b> shows a credential missing or the server returns 403 errors, verify the values in <code>Config.gs</code> and run <b>Reset Connection</b> afterward.</p>

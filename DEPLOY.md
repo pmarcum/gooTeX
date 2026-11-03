@@ -156,7 +156,6 @@ var CONFIG = {
   GOOTEX_CREDENTIAL:      "<the exact value from §3.4>",        // MUST match the server
   BIBMAN_CREDENTIAL:      "<only if using BibMan; BibMan's read-only EXPORT_CREDENTIAL>",
   GEMINI_API_KEY:         "<your Gemini key; see §5>",
-  GOOTEX_ACCESS_SHEET_ID: "<filled in by step 4.4>",
   GOOTEX_TEMPLATE_URL:    "<the make-a-copy URL of THIS template — see §4.7>",
 };
 ```
@@ -164,14 +163,14 @@ var CONFIG = {
 
 **Also allow your server in the script's whitelist.** In the same bound script, open ⚙️ **Project Settings → "Show appsscript.json manifest file"**, and in `urlFetchWhitelist` replace `https://YOUR-SERVER-DOMAIN-HERE/` with your own server's domain (e.g. `https://yourname.duckdns.org/`). **Without this, the script silently refuses to contact your compile server** and nothing happens on compile. While you're there, change `timeZone` if you're not in US Pacific. (Level-2 adopters also swap the `libraries` → `libraryId` for their own copy — see §4.1.)
 
-### 4.4 Initialize the Drive workspace
-From the Doc's `GooTeX` menu → **🔧 Server Setup → 📂 Initialize Drive Folder**. This creates the `allowed_users` access spreadsheet, adds you as the first allowed user, and shows its **File ID** in an alert. Paste that ID into `GOOTEX_ACCESS_SHEET_ID` in `Config.gs`.
+### 4.4 Who can use it
+There is no access list (since Core 5): anyone who can **edit** a gooTeX Doc can use gooTeX on it, because only a Doc's editors can run its script. To add a collaborator, use **🛠️ Utilities → 🤝 Invite Co-Author** in their paper's Doc (it shares the Doc and its folder without emailing them, and shows an invitation to copy into your own email), or share the Doc and folder by hand.
 
 ### 4.5 Add your BibMan dashboard link (optional)
 If you run BibMan, paste your BibMan dashboard URL into the placeholder at the top of the template Doc, so your authors have a one-click reference.
 
 ### 4.6 Authorize your users
-Add each collaborator's Google email to the `allowed_users` sheet. Only listed users can compile.
+Nothing to do: sharing a paper's Doc (and its folder) with someone as an editor is what lets them compile it (§4.4).
 
 ### 4.7 Hand the template to your group
 Your filled-in copy is now **your group's template**. Share a "make a copy" link to it with your authors — each new paper is a copy of this template, inheriting your `CONFIG`.

@@ -27,7 +27,7 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 | :--- | :--- |
 | Core logic + non-secret settings | `GooTeX_Core_Library` → `Config.gs` (version URL, template URL, Gemini **model**, menu cosmetics) |
 | **Per-group secrets** | The team template Doc's **bound script** → `Config.gs` → `CONFIG` object |
-| Allowed-users list | The `allowed_users` Google Sheet (ID in `CONFIG.GOOTEX_ACCESS_SHEET_ID`) |
+| Who may use gooTeX | Whoever can edit the Doc (Drive sharing); there is no access list since Core 5 |
 | Per-paper template | Your filled-in copy of the public template |
 
 ---
@@ -41,7 +41,7 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 | `GEMINI_API_KEY` | template `CONFIG` (live path) — optionally also server drop-in (dormant route) | One shared key for the whole group. See §4. |
 | Gemini **model** | library `Config.gs` → `GOOTEX_GEMINI_MODEL` | Live path. The server's hardcoded `gemini-2.5-flash` only matters if the server AI route is lit. |
 | `GOOTEX_SERVER_URL` | template `CONFIG` | The public HTTPS endpoint (ends in `/gootex`). |
-| `GOOTEX_ACCESS_SHEET_ID` | template `CONFIG` | ID of the `allowed_users` sheet. |
+| `GOOTEX_ACCESS_SHEET_ID` | (older Docs' `CONFIG`) | No longer used since Core 5; harmless if still there, and can be deleted. |
 | LaTeX toolchain | the server OS | Installed by `provision_vm.sh`. |
 | **Not used by gooTeX** | — | No Google service account, no rclone, no Drive mount. All Drive I/O is Apps Script side. |
 
@@ -63,7 +63,7 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 
 **Server URL / tunnel changes:** update `CONFIG.GOOTEX_SERVER_URL` in the template's bound script. Nothing else references it — there is no comm-file mechanism anymore.
 
-**Add / remove a user:** edit the `allowed_users` Google Sheet. No restart needed.
+**Add / remove a user:** share the paper's Doc and folder with them as an editor (🛠️ Utilities → 🤝 Invite Co-Author does both, sends no email, and shows an invitation text to copy into your own email), or stop sharing them. There is no access list since Core 5. A Doc still on Core 4 or older keeps checking the old `allowed_users` sheet until it is switched to Core 5 (Extensions → Apps Script → Libraries → GooTeX_Core_Library → version 5).
 
 **Update the gooTeX code (new release):** pull the new server code onto the VM and `sudo systemctl restart gootex`; update the `GooTeX_Core_Library` Apps Script; bump `version.json` in the repo so running instances show the "update available" banner.
 

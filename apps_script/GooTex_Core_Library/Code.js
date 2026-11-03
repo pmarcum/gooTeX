@@ -6,7 +6,7 @@
 **/
 
 /******************************/
-var GOOTEX_CORE_VERSION   = 3;
+var GOOTEX_CORE_VERSION   = 5;
 /******************************/
 
 function getCoreVersion() {return GOOTEX_CORE_VERSION;}
@@ -37,7 +37,6 @@ function onOpen() {
   menu.addSubMenu(ui.createMenu('🔧 Admin Only')
       .addItem('📖 Admin Manual',          'taskShowAdminHelp')
       .addSeparator()
-      .addItem('📋 Create User gooTeX/BibMan Access List', 'setupDrive')
       .addItem('🕵️ Check System Status',   'checkStatus')
       .addSeparator()
       .addItem('🧹 Reset Connection',      'masterSync'));
@@ -118,7 +117,6 @@ function debugConfig() {
   console.log("Server URL:    " + (_CONFIG.GOOTEX_SERVER_URL   || "NOT SET"));
   console.log("Credential:    " + (_CONFIG.GOOTEX_CREDENTIAL   ? "SET" : "NOT SET"));
   console.log("BibMan cred:   " + (_CONFIG.BIBMAN_CREDENTIAL   ? "SET" : "NOT SET"));
-  console.log("Access Sheet:  " + (_CONFIG.GOOTEX_ACCESS_SHEET_ID || "NOT SET"));
 }
 
 function taskShowAdminHelp() {
@@ -149,7 +147,6 @@ function taskShowHelp() {
 
 /** 🚀 v1.0 MASTER COMPILE */
 function taskCompile() {
-  if (!requireAuthorization()) return { status: "error", log: "🔒 Not authorized." };
   const lock = LockService.getDocumentLock();
   try { lock.waitLock(60000); } catch (e) {
     return { status: "error", log: "⚠️ System Busy." };
@@ -395,58 +392,9 @@ function executeTask(taskName, targetName, content, doc) {
   }
 }
 
-function isUserAuthorized() {
-  // Reads Sheet on first call per doc session per user.
-  // Caches in DocumentProperties (user+doc scoped).
-  // Cache cleared by masterSync().
-  try {
-    const props    = PropertiesService.getDocumentProperties();
-    const cacheKey = 'AUTH_ALLOWED_EMAILS';
-    const cached   = props.getProperty(cacheKey);
-    let allowedEmails;
-    if (cached) {
-      try { allowedEmails = JSON.parse(cached); } catch(e) { allowedEmails = null; }
-    }
-    if (!allowedEmails) {
-      // Cache empty — read Sheet fresh
-      const sheet = _getAccessSheet();
-      if (!sheet) {
-        // No Sheet found — fail open during initial setup
-        console.warn("⚠️ GooTeX_Access sheet not found — allowing access.");
-        return true;
-      }
-      const tab = sheet.getSheetByName('allowed_users');
-      if (!tab) {
-        console.warn("⚠️ allowed_users tab not found — allowing access.");
-        return true;
-      }
-      const data = tab.getDataRange().getValues();
-      allowedEmails = data.slice(1)  // skip header row
-        .map(function(row) { return (row[0] || '').toString().toLowerCase().trim(); })
-        .filter(function(email) { return email.length > 0; });
-      props.setProperty(cacheKey, JSON.stringify(allowedEmails));
-      console.log("✅ Auth cache populated: " + allowedEmails.length + " users.");
-    }
-    const userEmail = Session.getActiveUser().getEmail().toLowerCase();
-    return allowedEmails.indexOf(userEmail) > -1;
-  } catch(e) {
-    console.warn("Auth check error: " + e.message);
-    return false;
-  }
-}
-
-function requireAuthorization() {
-  if (!isUserAuthorized()) {
-    DocumentApp.getUi().alert(
-      "🔒 Not Authorized",
-      "You are not authorized to use this gooTeX installation.\n\n" +
-      "Contact your research group administrator to request access.",
-      DocumentApp.getUi().ButtonSet.OK
-    );
-    return false;
-  }
-  return true;
-}
+// Who may use gooTeX (since Core 4, 2 Nov 2026): anyone who can edit the Doc. Only editors can run a Doc's script,
+// so sharing the Doc (and its folder) is the permission; there is no access list. Before Core 4, compile, refresh and
+// zip also checked an allowed_users sheet (GOOTEX_ACCESS_SHEET_ID, now ignored if still in Config.gs).
 
 function buildSubDocs(dependencies, neededImages) {
   const neededSet = new Set(neededImages);  // no lowercasing — original case throughout
@@ -743,7 +691,6 @@ function _parseBibContent(bibContent) {
 }
 
 function getSidebarState(forceRefresh = false) {
-  if (!requireAuthorization()) return { status: "error", log: "🔒 Not authorized." };
   if (!forceRefresh) { return getFastAssets(); }
   const lock = LockService.getDocumentLock();
   let updates = {};
@@ -1181,7 +1128,7 @@ function masterSync() {
   const ui = DocumentApp.getUi();
   ui.alert(
     "✅ Connection Reset",
-    "Cache cleared. Authorization list and server connection will be re-read fresh on next action.",
+    "Cache cleared. The server connection and the document's cached data will be re-read fresh on next action.",
     ui.ButtonSet.OK
   );
 }
@@ -1332,43 +1279,49 @@ function taskInviteCoAuthor() {
   if (response.getSelectedButton() !== ui.Button.OK) return;
   const email = response.getResponseText().trim();
   if (!email || email.indexOf('@') === -1) { ui.alert("⚠️ Invalid Email"); return; }
-  // Add as Google Drive editor on document
-  try { doc.addEditor(email); } catch (e) { ui.alert("⚠️ Permission Error: " + e.message); return; }
-  // Add as Google Drive editor on project folder
+  // Make them an editor of the Doc and of its project folder (editor access to the Doc is all gooTeX needs; since
+  // Core 4 there is no access list). No email is sent, not even Google's own "shared with you" notice
+  // (sendNotificationEmail: false): instead the invitation text is shown, to copy into your own email.
+  const share = function(id) {
+    Drive.Permissions.create({ role: 'writer', type: 'user', emailAddress: email }, id,
+                             { sendNotificationEmail: false, supportsAllDrives: true });
+  };
+  try { share(doc.getId()); } catch (e) { ui.alert("⚠️ Permission Error: " + e.message); return; }
   let folderUrl = "(Could not locate folder link)";
+  let folderNote = "";
   try {
     const docFolder = DriveApp.getFileById(doc.getId()).getParents().next();
     folderUrl = docFolder.getUrl();
-    docFolder.addEditor(email);
-  } catch(e) {}
-  // Add to GooTeX_Access whitelist so user can compile
-  try {
-    const sheet = _getAccessSheet();
-    if (sheet) {
-      const tab = sheet.getSheetByName('allowed_users');
-      if (tab) {
-        tab.appendRow([email.toLowerCase()]);
-        PropertiesService.getDocumentProperties().deleteProperty('AUTH_ALLOWED_EMAILS');
-        console.log("✅ Added " + email + " to GooTeX_Access whitelist.");
-      }
-    }
-  } catch(e) {
-    console.warn("⚠️ Could not add to whitelist: " + e.message);
-  }
-  // Send email invitation
+    share(docFolder.getId());
+  } catch(e) { folderNote = "\n(The project folder could not be shared: " + e.message + ")"; }
   const safeLink = doc.getUrl() + "?mode=suggest";
-  try {
-    MailApp.sendEmail({
-      to: email,
-      subject: "Invitation to Collaborate: " + doc.getName(),
-      htmlBody: "<p>You are now a contributor to <b>" + doc.getName() + "</b>.</p>" +
-                "<p>Link: <a href='" + safeLink + "'>Open Document</a></p>" +
-                "<p>Folder: <a href='" + folderUrl + "'>Project Folder</a></p>"
-    });
-    ui.alert("✅ Success", "Invitation sent and user added to GooTeX access list.", ui.ButtonSet.OK);
-  } catch (e) {
-    ui.alert("⚠️ Access Granted and whitelist updated, but email notification failed.");
-  }
+  const subject  = "Invitation to Collaborate: " + doc.getName();
+  const body     = "Hi,\n\nYou are now a contributor to \"" + doc.getName() + "\".\n\n" +
+                   "Document: " + safeLink + "\nProject folder: " + folderUrl + "\n\n" +
+                   "The document is written in LaTeX and compiled with gooTeX, a script attached to it. " +
+                   "The first time you use it, Google asks you to authorize the script. This happens only once:\n\n" +
+                   "1. Open the document and wait for the gooTeX menu to appear at the top (to the right of Help). Click it and choose Control Panel.\n" +
+                   "2. A box says \"Authorization required\". Click Continue (or Review permissions) and pick your Google account.\n" +
+                   "3. A page warns \"Google hasn't verified this app\". This is normal for a script a research group writes for itself, which Google has not reviewed. Click \"Advanced\" (small, at the bottom left), then \"Go to ... (unsafe)\".\n" +
+                   "4. The next page lists what the script may do. Tick ALL the boxes (or \"Select all\"), then click Continue (or Allow). If any box is left unticked, parts of gooTeX will not work.\n" +
+                   "5. Back in the document, choose gooTeX > Control Panel again. The panel opens on the right; Compile builds the PDF into a \"Compiled\" folder next to the document.\n\n" +
+                   "The list sounds alarming because Google words it broadly (access to your Docs and Drive files): the script needs that to find this paper's figures and .bib files in Drive. " +
+                   "It runs under your own Google account, only when you use the gooTeX menu, and only reads this paper's folder and sends the text to our LaTeX server. " +
+                   "It does not touch your email, passwords or anything outside Google Docs and Drive.\n";
+  const esc = function(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  const html = HtmlService.createHtmlOutput(
+    '<div style="font-family:Segoe UI,Tahoma,sans-serif;font-size:13px;color:#333">' +
+    '<p style="margin:0 0 8px"><b>✅ ' + esc(email) + '</b> can now edit this Doc and its project folder.' + esc(folderNote) +
+    '<br>No email was sent. Copy the invitation below into your own email (add anything you like), and send it to them.</p>' +
+    '<div style="font-size:11px;color:#666">To: ' + esc(email) + '</div>' +
+    '<div style="font-size:11px;color:#666;margin-bottom:4px">Subject: ' + esc(subject) + '</div>' +
+    '<textarea id="t" style="width:100%;height:320px;font-family:inherit;font-size:12px;box-sizing:border-box">' + esc(body) + '</textarea>' +
+    '<div style="margin-top:8px;text-align:right"><span id="m" style="color:#2e7d32;margin-right:8px"></span>' +
+    '<button onclick="var t=document.getElementById(\'t\');t.select();var ok=false;try{ok=document.execCommand(\'copy\')}catch(e){}' +
+    'document.getElementById(\'m\').textContent=ok?\'Copied\':\'Selected: press Ctrl+C (Cmd+C on a Mac)\'">Copy text</button> ' +
+    '<button onclick="google.script.host.close()">Close</button></div></div>'
+  ).setWidth(600).setHeight(520);
+  ui.showModalDialog(html, '🤝 Invitation for ' + email);
 }
 
 function taskOptimizeImages() {
@@ -1471,44 +1424,12 @@ function taskOptimizeImages() {
   }
 }
 
+// Kept because every Doc's attached script still has a setupDrive() wrapper; the menu no longer offers it.
 function setupDrive() {
-  const ui = DocumentApp.getUi();
-  try {
-    // Check if access sheet already exists
-    if (_CONFIG.GOOTEX_ACCESS_SHEET_ID) {
-      try {
-        SpreadsheetApp.openById(_CONFIG.GOOTEX_ACCESS_SHEET_ID);
-        ui.alert("✅ System Already Active",
-                 "GooTeX is already configured for this installation.",
-                 ui.ButtonSet.OK);
-        return;
-      } catch(e) {}
-    }
-    const response = ui.alert("🚀 Create GooTeX / BibMan User Access List",
-      "This task will create a new GooTeX_Access spreadsheet for managing compiler access.\n\nProceed?",
-      ui.ButtonSet.YES_NO);
-    if (response !== ui.Button.YES) return;
-    // Create the access sheet in the current folder
-    const doc           = DocumentApp.getActiveDocument();
-    const currentFolder = DriveApp.getFileById(doc.getId()).getParents().next();
-    const sheet         = SpreadsheetApp.create("GooTeX_Access");
-    DriveApp.getFileById(sheet.getId()).moveTo(currentFolder);
-    const tab = sheet.getActiveSheet();
-    tab.setName('allowed_users');
-    tab.getRange('A1').setValue('email');
-    // Add current user automatically
-    const userEmail = Session.getActiveUser().getEmail();
-    tab.getRange('A2').setValue(userEmail.toLowerCase());
-    ui.alert(
-      "✅ Setup Complete",
-      "GooTeX_Access spreadsheet created.\n\n" +
-      "File ID: " + sheet.getId() + "\n\n" +
-      "Copy this ID into GOOTEX_ACCESS_SHEET_ID in Config.gs.",
-      ui.ButtonSet.OK
-    );
-  } catch (e) {
-    ui.alert("❌ Setup Failed: " + e.message, ui.ButtonSet.OK);
-  }
+  DocumentApp.getUi().alert("ℹ️ No access list needed",
+    "Since gooTeX Core 4 there is no access list: anyone who can edit a gooTeX Doc can use gooTeX on it.\n" +
+    "To add someone, use Utilities > Invite Co-Author (or share the Doc and its folder with them).",
+    DocumentApp.getUi().ButtonSet.OK);
 }
 
 function checkStatus() {
@@ -1538,13 +1459,11 @@ function checkStatus() {
   msg += `🖥️  Compiler server: ${serverStatus}\n`;
   msg += `🔑 Credential set:  ${_CONFIG.GOOTEX_CREDENTIAL ? "✅ Yes" : "❌ No"}\n`;
   msg += `📚 BibMan credential: ${_CONFIG.BIBMAN_CREDENTIAL ? "✅ Yes" : "❌ No"}\n`;
-  msg += `📋 Access sheet:    ${_CONFIG.GOOTEX_ACCESS_SHEET_ID ? "✅ Yes" : "❌ No"}\n`;
   if (serverStatus.includes("🔴")) { msg += "\n👉 The GooTeX VM server is not responding. Contact your system administrator."; }
   ui.alert("System Diagnosis", msg, ui.ButtonSet.OK);
 }
 
 function taskZip() {
-  if (!requireAuthorization()) return { status: "error", log: "🔒 Not authorized." };
   if (!_CONFIG.GOOTEX_SERVER_URL) return { status: "error", log: "❌ SERVER URL MISSING — check Config.gs" };
   const doc = DocumentApp.getActiveDocument();
   const text = getCleanText(doc.getId());
@@ -1553,15 +1472,6 @@ function taskZip() {
 
 function getGeminiKey()   { return _CONFIG.GEMINI_API_KEY  || null; }
 function getGeminiModel() { return GOOTEX_GEMINI_MODEL; }
-
-function _getAccessSheet() {
-  try {
-    return SpreadsheetApp.openById(_CONFIG.GOOTEX_ACCESS_SHEET_ID);
-  } catch(e) {
-    console.warn("Access sheet lookup failed: " + e.message);
-    return null;
-  }
-}
 
 /** 📦 ROBUST ZIP LOCATOR
  * Fixes the "Fetching..." hang by waiting for Google's indexer to wake up.
@@ -1726,28 +1636,6 @@ function _checkForUpdates(attachedVersion) {
     };
   } catch(e) {}
   return {};
-}
-
-function debugAuth() {
-  console.log("Access sheet ID: " + (_CONFIG.GOOTEX_ACCESS_SHEET_ID || "NOT SET"));
-  const sheet = _getAccessSheet();
-  console.log("Sheet: " + (sheet ? sheet.getName() : "NULL"));
-  if (sheet) {
-    const tab = sheet.getSheetByName('allowed_users');
-    console.log("Tab: " + (tab ? tab.getName() : "NULL"));
-    if (tab) {
-      const data = tab.getDataRange().getValues();
-      console.log("Rows: " + data.length);
-      console.log("Row 0 (header): " + JSON.stringify(data[0]));
-      if (data.length > 1) console.log("Row 1: " + JSON.stringify(data[1]));
-    }
-  }
-  const userEmail = Session.getActiveUser().getEmail();
-  console.log("Current user: " + userEmail);
-  const props = PropertiesService.getDocumentProperties();
-  const cached = props.getProperty('AUTH_ALLOWED_EMAILS');
-  console.log("Cached emails: " + cached);
-  console.log("isUserAuthorized: " + isUserAuthorized());
 }
 
 function debugTables() {
