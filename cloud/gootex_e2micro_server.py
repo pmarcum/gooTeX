@@ -78,6 +78,36 @@ def gootex_auth_required(f):
     return decorated
 
 # ==========================================
+# 🧬 LINEAGE CHECK (since gooTeX Core 6)
+# Every gooTeX Doc carries its own Doc ID in a hidden named range (its
+# "lineage"); a copy of a paper carries the paper's ID instead. The library
+# checks it before the Control Panel opens and sends it with every request;
+# here every task except status is refused unless the lineage is the Doc's
+# own ID. Refusals are HTTP 200 with status "error" (a 403 would make the
+# library report a wrong credential).
+# ==========================================
+DOC_ID_RE = re.compile(r'^[A-Za-z0-9_-]{20,100}$')
+
+def lineage_refusal(data):
+    """None if the request may go ahead, else (reason for the log, message for the user)."""
+    doc_id  = str(data.get('doc_id') or '')
+    lineage = str(data.get('lineage') or '')
+    if not DOC_ID_RE.match(doc_id):
+        return ('missing or malformed doc_id', '🔒 This request did not say which Doc it came from.')
+    if not lineage:
+        return ('no lineage (gooTeX library older than Core 6, or an unmarked Doc)',
+                '🔒 gooTeX did not recognise this Doc. If the gooTeX menu shows a version below 6, update the '
+                'gooTeX library (Extensions → Libraries); otherwise open the Control Panel for details.')
+    if lineage != doc_id:
+        return ('lineage is another Doc (a copy of another paper)',
+                "🔒 gooTeX is turned off in this Doc: it is a copy of another gooTeX paper. Start new papers "
+                "from your group's gooTeX template; open the Control Panel for details.")
+    return None
+
+def log_refusal(where, data, reason):
+    print(f"  🔒 Refused {where} (task={data.get('task')}) for doc {str(data.get('doc_id') or '?')[:8]}...: {reason}")
+
+# ==========================================
 # 🧠 UTILITIES (unchanged from Colab version)
 # ==========================================
 
@@ -450,6 +480,10 @@ def check_cache():
 
         if not doc_id:
             return jsonify({"status": "error", "needed": []}), 400
+        refusal = lineage_refusal(data)
+        if refusal:
+            log_refusal('check_cache', data, refusal[0])
+            return jsonify({"status": "error", "refused": True, "needed": [], "log": refusal[1]}), 200
 
         manifest = load_cache_manifest(doc_id)
         img_manifest = manifest.get("images", {})
@@ -502,6 +536,13 @@ def download_file(token):
 @app.route("/", methods=["POST"])
 @gootex_auth_required
 def handle_request():
+    # Lineage check first, outside the try/finally below, so a refused request never touches a compile lock.
+    data_in = request.get_json(silent=True) or {}
+    if data_in.get("task") != 'status':
+        refusal = lineage_refusal(data_in)
+        if refusal:
+            log_refusal('request', data_in, refusal[0])
+            return jsonify({"status": "error", "refused": True, "log": refusal[1]}), 200
     cache_dir      = None
     bibman_warn    = []
     bibman_library = None

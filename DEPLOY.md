@@ -159,7 +159,7 @@ var CONFIG = {
   GOOTEX_TEMPLATE_URL:    "<the make-a-copy URL of THIS template — see §4.7>",
 };
 ```
-`GOOTEX_TEMPLATE_URL` is the "make a fresh copy" link the update banner shows your authors; point it at **this** template (you'll have its URL once you've saved your copy — §4.7). It is per-group, so it lives here in `CONFIG`, not in the shared library.
+`GOOTEX_TEMPLATE_URL` is the "make a fresh copy" link the update banner shows your authors; point it at **this** template (you'll have its URL once you've saved your copy — §4.7). It is per-group, so it lives here in `CONFIG`, not in the shared library. It is also how gooTeX recognises the template (§4.6).
 
 **Also allow your server in the script's whitelist.** In the same bound script, open ⚙️ **Project Settings → "Show appsscript.json manifest file"**, and in `urlFetchWhitelist` replace `https://YOUR-SERVER-DOMAIN-HERE/` with your own server's domain (e.g. `https://yourname.duckdns.org/`). **Without this, the script silently refuses to contact your compile server** and nothing happens on compile. While you're there, change `timeZone` if you're not in US Pacific. (Level-2 adopters also swap the `libraries` → `libraryId` for their own copy — see §4.1.)
 
@@ -172,8 +172,17 @@ If you run BibMan, paste your BibMan dashboard URL into the placeholder at the t
 ### 4.6 Authorize your users
 Nothing to do: sharing a paper's Doc (and its folder) with someone as an editor is what lets them compile it (§4.4).
 
+**New papers come from the template (since Core 6).** Every gooTeX Doc carries a hidden mark, its *lineage*: a named range `gootex_lineage:<Doc ID>` on the Doc's body. It is invisible in Docs, survives deleting all the text, and is copied by both *File → Make a copy* and Drive's *Make a copy*. Before the Control Panel opens (and before the server-using utilities run), gooTeX checks it:
+
+1. the mark is this Doc's own ID → gooTeX works;
+2. the mark is the template's ID (from `GOOTEX_TEMPLATE_URL`), i.e. a fresh copy of the template → gooTeX writes this Doc's own ID, once, and works;
+3. this Doc **is** the template → gooTeX writes its own ID and works (so the template needs no setup: open the Control Panel in it once, after setting `GOOTEX_TEMPLATE_URL`);
+4. anything else — a copy of another paper, or a Doc not made from the template → the Control Panel does not open, and a message explains why.
+
+The library sends the mark with every request and the server refuses any request whose mark is not the Doc's own ID, so a Doc switched to an older library cannot skip the check. This stops ordinary copying of papers (and the server load that comes with it); it is not proof against an editor who reads the code, since editors can see the Doc's script. To reuse an old paper, copy the template and paste the text in. A paper started before Core 6 has no mark: mark it once with `apps_script/tools/MarkPaper.gs` (instructions at the top of that file).
+
 ### 4.7 Hand the template to your group
-Your filled-in copy is now **your group's template**. Share a "make a copy" link to it with your authors — each new paper is a copy of this template, inheriting your `CONFIG`.
+Your filled-in copy is now **your group's template**. Open the Control Panel in it once (it marks itself, §4.6), then share a "make a copy" link to it with your authors — each new paper is a copy of this template, inheriting your `CONFIG` and its mark.
 
 ---
 

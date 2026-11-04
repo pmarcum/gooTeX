@@ -28,6 +28,7 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 | Core logic + non-secret settings | `GooTeX_Core_Library` → `Config.gs` (version URL, template URL, Gemini **model**, menu cosmetics) |
 | **Per-group secrets** | The team template Doc's **bound script** → `Config.gs` → `CONFIG` object |
 | Who may use gooTeX | Whoever can edit the Doc (Drive sharing); there is no access list since Core 5 |
+| Which Docs gooTeX works in | Docs carrying their own ID as their hidden lineage mark (named range `gootex_lineage:<Doc ID>`), since Core 6 — new copies of the template get it automatically; copies of papers are refused |
 | Per-paper template | Your filled-in copy of the public template |
 
 ---
@@ -65,6 +66,10 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 
 **Add / remove a user:** share the paper's Doc and folder with them as an editor (🛠️ Utilities → 🤝 Invite Co-Author does both, sends no email, and shows an invitation text to copy into your own email), or stop sharing them. There is no access list since Core 5. A Doc still on Core 4 or older keeps checking the old `allowed_users` sheet until it is switched to Core 5 (Extensions → Apps Script → Libraries → GooTeX_Core_Library → version 5).
 
+**A Doc says "gooTeX is not available in this Doc":** it is a copy of another paper, or was not made from the template (Admin Only → Check System Status shows which, under *This Doc*). New papers must start from the template. If it is a real paper started before Core 6, mark it once with `apps_script/tools/MarkPaper.gs` (instructions at the top of the file). If it is the template itself, check that `CONFIG.GOOTEX_TEMPLATE_URL` points at it.
+
+**Move to a new template:** set the new template's `GOOTEX_TEMPLATE_URL` to its own URL and open the Control Panel in it once. Existing papers keep working (each carries its own ID), and copies of the old template still work because their `Config.gs` points at the old template.
+
 **Update the gooTeX code (new release):** pull the new server code onto the VM and `sudo systemctl restart gootex`; update the `GooTeX_Core_Library` Apps Script; bump `version.json` in the repo so running instances show the "update available" banner.
 
 **Cache growing too large / change retention:** edit `MAX_AGE_DAYS` in `gootex_cache_cleanup.py` (default 90), or run it by hand: `~/gootex/venv/bin/python3 ~/gootex/gootex_cache_cleanup.py`. Set `DRY_RUN = True` to preview without deleting.
@@ -87,6 +92,7 @@ Check or change the tier in **Google AI Studio / Google Cloud console** for the 
 | Symptom | First thing to check |
 | :--- | :--- |
 | Compiles return `🔒 Unauthorized` / 403 | `GOOTEX_CREDENTIAL` mismatch between server drop-in and template `CONFIG` |
+| Compiles return "🔒 gooTeX did not recognise this Doc" / "turned off in this Doc" | The Doc's lineage mark is missing or belongs to another Doc (see runbook above), or the Doc still uses a library older than Core 6 |
 | Compiles return "SERVER URL MISSING" | `CONFIG.GOOTEX_SERVER_URL` not set in the template script |
 | Nothing happens / connection error | Server down or tunnel down — `sudo systemctl status gootex`; test the HTTPS endpoint's `/health` |
 | AI button says "API Key missing" | No usable `GEMINI_API_KEY` on the active path (template `CONFIG`, or server drop-in if using that route) |

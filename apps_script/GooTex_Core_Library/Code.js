@@ -6,7 +6,7 @@
 **/
 
 /******************************/
-var GOOTEX_CORE_VERSION   = 5;
+var GOOTEX_CORE_VERSION   = 6;
 /******************************/
 
 function getCoreVersion() {return GOOTEX_CORE_VERSION;}
@@ -126,7 +126,64 @@ function taskShowAdminHelp() {
   DocumentApp.getUi().showModelessDialog(html, 'gooTeX Admin Guide');
 }
 
+/** 🧬 LINEAGE (since Core 6): which Doc a paper was started from, kept as a hidden named range "gootex_lineage:<value>"
+ * on the Doc's body. Named ranges are invisible in Docs, survive deleting all the text, and are copied by both
+ * File > Make a copy and Drive's Make a copy. Every gooTeX Doc carries its OWN ID there. The check (before the Control
+ * Panel opens, and before the menu utilities that use the server):
+ *   1. the lineage is this Doc's own ID                      → gooTeX works
+ *   2. the lineage is the template's ID (GOOTEX_TEMPLATE_URL) → a fresh copy of the template: write this Doc's ID, works
+ *   3. this Doc IS the template                              → write its own ID, works (so templates need no setup)
+ *   4. anything else (another Doc's ID, or none)             → a copy of another paper, or not from a template: refused
+ * The server refuses any request whose lineage is not the Doc's own ID, so an older library cannot skip the check. */
+var LINEAGE_PREFIX = 'gootex_lineage:';
+
+function _lineageMarks(doc) {
+  return doc.getNamedRanges().map(function(n) { return n.getName(); })
+            .filter(function(n) { return n.indexOf(LINEAGE_PREFIX) === 0; })
+            .map(function(n) { return n.substring(LINEAGE_PREFIX.length); });
+}
+
+function _lineage(doc) {   // the value to report to the server: this Doc's own ID if it carries it, else the first mark
+  const marks = _lineageMarks(doc);
+  return marks.indexOf(doc.getId()) >= 0 ? doc.getId() : (marks[0] || '');
+}
+
+function _writeLineage(doc, value) {
+  doc.getNamedRanges().forEach(function(n) { if (n.getName().indexOf(LINEAGE_PREFIX) === 0) n.remove(); });
+  doc.addNamedRange(LINEAGE_PREFIX + value, doc.newRange().addElement(doc.getBody()).build());
+}
+
+function _templateDocId() {
+  const m = String((_CONFIG && _CONFIG.GOOTEX_TEMPLATE_URL) || '').match(/\/d\/([A-Za-z0-9_-]{20,})/);
+  return m ? m[1] : '';
+}
+
+// Returns { ok: true } or { ok: false, title, message }. May write this Doc's ID (rules 2 and 3).
+function _lineageGate() {
+  const doc = DocumentApp.getActiveDocument(), id = doc.getId(), tpl = _templateDocId();
+  const marks = _lineageMarks(doc);
+  if (marks.indexOf(id) >= 0) return { ok: true };
+  if ((tpl && marks.indexOf(tpl) >= 0) || id === tpl) { _writeLineage(doc, id); return { ok: true }; }
+  const url = /^https:\/\//.test(String(_CONFIG.GOOTEX_TEMPLATE_URL || '')) ? _CONFIG.GOOTEX_TEMPLATE_URL : '';
+  const start = "To start a new paper, make a copy of your group's gooTeX template" +
+                (url ? ":\n" + url + "\n" : " ") + "and paste your text into it.";
+  if (marks.length) return { ok: false, title: "🔒 gooTeX is not available in this Doc",
+    message: "This Doc is a copy of another gooTeX paper, so gooTeX is turned off here.\n\n" + start +
+             "\n\nIf you think this is a mistake, ask your gooTeX administrator." };
+  return { ok: false, title: "🔒 gooTeX is not available in this Doc",
+    message: "This Doc was not started from your group's gooTeX template, so gooTeX is turned off here.\n\n" + start +
+             "\n\nAdministrator: a paper started before gooTeX Core 6 needs to be marked once by hand " +
+             "(see the Admin Manual, \"Papers started before Core 6\")." };
+}
+
+function _lineageAllowed() {   // for the menu utilities: shows the explanation and returns false when refused
+  const gate = _lineageGate();
+  if (!gate.ok) DocumentApp.getUi().alert(gate.title, gate.message, DocumentApp.getUi().ButtonSet.OK);
+  return gate.ok;
+}
+
 function taskOpenSidebar() {
+  if (!_lineageAllowed()) return;
   try { checkVersion(); } catch(e) {}
   const ui = DocumentApp.getUi();
   const html = HtmlService.createTemplateFromFile('Sidebar')
@@ -178,7 +235,7 @@ function handleResponse(result) {
   if (result.page_count && result.page_count !== "0") { propsService.setProperty('LAST_PAGE_COUNT', result.page_count.toString()); }
   const pData = propsService.getProperties();
   // 🏷️ USERNAME CAP: Limits to 6 chars + ... if longer
-  let rawUser = pData.LAST_COMPILE_USER || "System";
+  let rawUser = pData.LAST_COMPILE_USER || "—";
   let displayUser = rawUser.length > 6 ? rawUser.substring(0, 6) + ".." : rawUser;
   // 🕒 TIME CAP: Ensures 3-letter Day (e.g., Wed)
   let lastTime = (pData.LAST_COMPILE_TIME || "--:--").replace(/^([A-Za-z]{4,})/, m => m.substring(0, 3));
@@ -308,10 +365,11 @@ function collectSubDocs(mainText, taskName) {
 
 function executeTask(taskName, targetName, content, doc) {
   // - Adds X-GooTeX-Credential header
-  // - Adds doc_id to all payloads
+  // - Adds doc_id and lineage (see LINEAGE above) to all payloads
   // - Two-step compile: cache check then compile with needed images
   // - Single step for all other tasks
   const docId       = doc.getId();
+  const lineage     = _lineage(doc);   // checked by the server: must be this Doc's own ID
   let fullText       = content || getCleanText(docId);
   const dependencies = collectSubDocs(fullText, taskName);
   if (!_CONFIG.GOOTEX_SERVER_URL) { return { status: "offline", log: "❌ SERVER URL MISSING — check Config.gs" }; }
@@ -333,7 +391,7 @@ function executeTask(taskName, targetName, content, doc) {
           {
             "method":             "post",
             "contentType":        "application/json",
-            "payload":            JSON.stringify({ "doc_id": docId, "images": imageManifest }),
+            "payload":            JSON.stringify({ "doc_id": docId, "lineage": lineage, "images": imageManifest }),
             "muteHttpExceptions": true,
             "headers":            authHeaders
           }
@@ -350,6 +408,7 @@ function executeTask(taskName, targetName, content, doc) {
     const payload = {
       "task":      taskName,
       "doc_id":    docId,
+      "lineage":   lineage,
       "main_text": fullText,
       "main_name": targetName || "main.tex",
       "full_path": calculatedPath,
@@ -373,6 +432,7 @@ function executeTask(taskName, targetName, content, doc) {
   const payload = {
     "task":      taskName,
     "doc_id":    docId,
+    "lineage":   lineage,
     "main_text": fullText,
     "main_name": targetName || "main.tex",
     "full_path": calculatedPath,
@@ -392,8 +452,8 @@ function executeTask(taskName, targetName, content, doc) {
   }
 }
 
-// Who may use gooTeX (since Core 4, 2 Nov 2026): anyone who can edit the Doc. Only editors can run a Doc's script,
-// so sharing the Doc (and its folder) is the permission; there is no access list. Before Core 4, compile, refresh and
+// Who may use gooTeX (since Core 5, 2 Nov 2026): anyone who can edit the Doc. Only editors can run a Doc's script,
+// so sharing the Doc (and its folder) is the permission; there is no access list. Before Core 5, compile, refresh and
 // zip also checked an allowed_users sheet (GOOTEX_ACCESS_SHEET_ID, now ignored if still in Config.gs).
 
 function buildSubDocs(dependencies, neededImages) {
@@ -755,7 +815,7 @@ function getSidebarState(forceRefresh = false) {
       sections: localAssets.sections
     };
 
-    const lastUser = props.getProperty('LAST_COMPILE_USER') || "System";
+    const lastUser = props.getProperty('LAST_COMPILE_USER') || "—";
     const displayUser = lastUser.length > 6 ? lastUser.substring(0, 6) + "…" : lastUser;
     const lastTime = (props.getProperty('LAST_COMPILE_TIME') || "--:--").replace(/^([A-Za-z]{4,})/, m => m.substring(0, 3));
     return {
@@ -1134,6 +1194,7 @@ function masterSync() {
 }
 
 function taskSelectionCount() {
+  if (!_lineageAllowed()) return;
   const doc = DocumentApp.getActiveDocument();
   const selection = doc.getSelection();
   if (!selection) {
@@ -1280,7 +1341,7 @@ function taskInviteCoAuthor() {
   const email = response.getResponseText().trim();
   if (!email || email.indexOf('@') === -1) { ui.alert("⚠️ Invalid Email"); return; }
   // Make them an editor of the Doc and of its project folder (editor access to the Doc is all gooTeX needs; since
-  // Core 4 there is no access list). No email is sent, not even Google's own "shared with you" notice
+  // Core 5 there is no access list). No email is sent, not even Google's own "shared with you" notice
   // (sendNotificationEmail: false): instead the invitation text is shown, to copy into your own email.
   const share = function(id) {
     Drive.Permissions.create({ role: 'writer', type: 'user', emailAddress: email }, id,
@@ -1325,6 +1386,7 @@ function taskInviteCoAuthor() {
 }
 
 function taskOptimizeImages() {
+  if (!_lineageAllowed()) return;
   const ui  = DocumentApp.getUi();
   const doc = DocumentApp.getActiveDocument();
   // Ask which image to compress
@@ -1382,6 +1444,8 @@ function taskOptimizeImages() {
     if (!_CONFIG.GOOTEX_SERVER_URL) { ui.alert("❌ Server offline."); return; }
     const payload = {
       "task":     "compress_image",
+      "doc_id":   doc.getId(),
+      "lineage":  _lineage(doc),
       "filename": filename,
       "base64":   b64,
       "mime":     mime
@@ -1427,7 +1491,7 @@ function taskOptimizeImages() {
 // Kept because every Doc's attached script still has a setupDrive() wrapper; the menu no longer offers it.
 function setupDrive() {
   DocumentApp.getUi().alert("ℹ️ No access list needed",
-    "Since gooTeX Core 4 there is no access list: anyone who can edit a gooTeX Doc can use gooTeX on it.\n" +
+    "Since gooTeX Core 5 there is no access list: anyone who can edit a gooTeX Doc can use gooTeX on it.\n" +
     "To add someone, use Utilities > Invite Co-Author (or share the Doc and its folder with them).",
     DocumentApp.getUi().ButtonSet.OK);
 }
@@ -1459,6 +1523,14 @@ function checkStatus() {
   msg += `🖥️  Compiler server: ${serverStatus}\n`;
   msg += `🔑 Credential set:  ${_CONFIG.GOOTEX_CREDENTIAL ? "✅ Yes" : "❌ No"}\n`;
   msg += `📚 BibMan credential: ${_CONFIG.BIBMAN_CREDENTIAL ? "✅ Yes" : "❌ No"}\n`;
+  try {   // read only: nothing is written here (the Control Panel does that)
+    const doc = DocumentApp.getActiveDocument(), id = doc.getId(), tpl = _templateDocId(), marks = _lineageMarks(doc);
+    const kind = id === tpl ? "this group's template" : marks.indexOf(id) >= 0 ? "✅ a gooTeX paper"
+               : (tpl && marks.indexOf(tpl) >= 0) ? "✅ a new copy of the template (marked when the Control Panel opens)"
+               : marks.length ? "🔒 a copy of another paper (gooTeX is off)" : "🔒 not started from the template (gooTeX is off)";
+    msg += `🧬 This Doc:        ${kind}\n`;
+    msg += `📄 Template in Config.gs: ${tpl ? "✅ set" : "⚠️ GOOTEX_TEMPLATE_URL not set"}\n`;
+  } catch (e) { msg += `🧬 This Doc:        ⚠️ could not check (${e.message})\n`; }
   if (serverStatus.includes("🔴")) { msg += "\n👉 The GooTeX VM server is not responding. Contact your system administrator."; }
   ui.alert("System Diagnosis", msg, ui.ButtonSet.OK);
 }
@@ -1570,7 +1642,7 @@ function getFastAssets() {
   refs.forEach(r => { r.used = !!storedCounts[r.key]; });
   const lastWC = props.getProperty('LAST_WORD_COUNT') || "--";
   const lastPC = props.getProperty('LAST_PAGE_COUNT') || "--";
-  const lastUser = props.getProperty('LAST_COMPILE_USER') || "System";
+  const lastUser = props.getProperty('LAST_COMPILE_USER') || "—";
   const displayUser = lastUser.length > 6 ? lastUser.substring(0, 6) + "…" : lastUser;
   const lastTime = (props.getProperty('LAST_COMPILE_TIME') || "--:--").replace(/^([A-Za-z]{4,})/, m => m.substring(0, 3));
   const rawLog = props.getProperty('LATEST_LOG');

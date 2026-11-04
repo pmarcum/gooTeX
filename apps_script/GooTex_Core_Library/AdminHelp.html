@@ -46,15 +46,47 @@
     <code>BIBMAN_CREDENTIAL</code> — BibMan credential (if BibMan is deployed)<br>
     <code>GEMINI_API_KEY</code> — Google AI Studio API key<br>
     <code>GOOTEX_ATTACHED_VERSION</code> — set to 1<br>
-    <code>GOOTEX_TEMPLATE_URL</code> — the "make a copy" URL of THIS template (shown to users when their attached script needs updating)
+    <code>GOOTEX_TEMPLATE_URL</code> — the "make a copy" URL of THIS template, your copy from Step 1 (it ends in <code>/copy</code>).
+    It is shown to users when their attached script needs updating, and it is how GooTeX recognises the template (Step 3).
   </div>
 
   <div class="step">
-    <span class="step-num">Step 3:</span> <b>Verify</b><br>
-    Run <b>GooTeX &gt; Admin Only &gt; Check System Status</b>. All items should show ✅.
+    <span class="step-num">Step 3:</span> <b>Open the Control Panel once in the template</b><br>
+    With <code>GOOTEX_TEMPLATE_URL</code> set, open <b>GooTeX &gt; Control Panel</b> in the template. GooTeX marks the
+    template with its own Doc ID (a hidden mark, see "New Papers and Copies" below). Every copy of the template
+    inherits that mark, and that is what lets a new paper use GooTeX.
   </div>
 
-  <h2>2. Managing Co-Author Access</h2>
+  <div class="step">
+    <span class="step-num">Step 4:</span> <b>Verify</b><br>
+    Run <b>GooTeX &gt; Admin Only &gt; Check System Status</b>. All items should show ✅, and <b>This Doc</b> should say
+    <i>this group's template</i>.
+  </div>
+
+  <h2>2. New Papers and Copies</h2>
+  <p>Every GooTeX Doc carries a hidden mark (its <i>lineage</i>): the Doc ID it was started from. Nobody sees it in the
+  Doc, and deleting text does not remove it. Before the Control Panel opens, GooTeX checks it:</p>
+  <ul>
+    <li><b>The mark is this Doc's own ID:</b> GooTeX works.</li>
+    <li><b>The mark is the template's ID</b> (a new copy of the template): GooTeX replaces it with this Doc's own ID, once, and works.</li>
+    <li><b>This Doc is the template:</b> GooTeX marks it with its own ID and works.</li>
+    <li><b>Anything else</b> (a copy of another paper, or a Doc not made from the template): the Control Panel does not
+    open, and a message explains why. The server refuses such a Doc too.</li>
+  </ul>
+  <div class="card">
+    <b>New papers always start from the template</b> (so they also get its latest updates). Copying an existing paper
+    gives a Doc in which GooTeX is turned off; to reuse an old paper, make a copy of the template and paste the text in.
+  </div>
+  <h3>Papers started before Core 6</h3>
+  <p>A paper started before GooTeX Core 6 has no mark yet, so GooTeX is off in it until it is marked once, by hand:
+  in that paper, open <b>Extensions &gt; Apps Script</b>, add a script file named <code>MarkPaper</code>, paste in
+  <code>apps_script/tools/MarkPaper.gs</code> from the GooTeX repository, run <code>markThisPaper</code>, then delete
+  the <code>MarkPaper</code> file again. Only mark Docs that really are your group's papers.</p>
+  <h3>Moving to a new template</h3>
+  <p>Papers keep working: each carries its own ID. Copies of the old template keep working too, because their
+  <code>Config.gs</code> still points at the old template.</p>
+
+  <h2>3. Managing Co-Author Access</h2>
   <p>There is no access list: anyone who can <b>edit</b> a GooTeX Doc can use GooTeX on it.</p>
   <div class="step">
     <span class="step-num">Add:</span> Use <b>GooTeX &gt; Utilities &gt; Invite Co-Author</b> —
@@ -66,7 +98,7 @@
     <span class="step-num">Remove:</span> Stop sharing the Doc (and its folder) with them.
   </div>
 
-  <h2>3. Troubleshooting</h2>
+  <h2>4. Troubleshooting</h2>
   <div class="card">
     <h3>🅰️ Compiler Server Offline</h3>
     <p>The server restarts automatically after most failures. If it remains offline after 30 seconds, the VM administrator will need to restart the service manually.</p>
