@@ -6,7 +6,7 @@
 **/
 
 /******************************/
-var GOOTEX_CORE_VERSION   = 6;
+var GOOTEX_CORE_VERSION   = 7;
 /******************************/
 
 function getCoreVersion() {return GOOTEX_CORE_VERSION;}
@@ -164,6 +164,11 @@ function _lineageGate() {
   const marks = _lineageMarks(doc);
   if (marks.indexOf(id) >= 0) return { ok: true };
   if ((tpl && marks.indexOf(tpl) >= 0) || id === tpl) { _writeLineage(doc, id); return { ok: true }; }
+  if (!tpl) return { ok: false, title: "🔒 gooTeX is not set up in this Doc yet",   // rules 2 and 3 need the template's ID
+    message: "GOOTEX_TEMPLATE_URL in this Doc's Config.gs (Extensions > Apps Script) is not set yet, so gooTeX " +
+             "cannot tell whether this Doc was started from your group's template.\n\nAdministrator: if this Doc is " +
+             "your group's template, set GOOTEX_TEMPLATE_URL to this Doc's own link, then open the Control Panel again " +
+             "(see the Admin Manual, Step 2)." };
   const url = /^https:\/\//.test(String(_CONFIG.GOOTEX_TEMPLATE_URL || '')) ? _CONFIG.GOOTEX_TEMPLATE_URL : '';
   const start = "To start a new paper, make a copy of your group's gooTeX template" +
                 (url ? ":\n" + url + "\n" : " ") + "and paste your text into it.";
@@ -1525,10 +1530,15 @@ function checkStatus() {
   msg += `📚 BibMan credential: ${_CONFIG.BIBMAN_CREDENTIAL ? "✅ Yes" : "❌ No"}\n`;
   try {   // read only: nothing is written here (the Control Panel does that)
     const doc = DocumentApp.getActiveDocument(), id = doc.getId(), tpl = _templateDocId(), marks = _lineageMarks(doc);
-    const kind = id === tpl ? "this group's template" : marks.indexOf(id) >= 0 ? "✅ a gooTeX paper"
+    const own = marks.indexOf(id) >= 0, other = marks.filter(function(m) { return m !== id && m !== tpl; })[0];
+    const kind = id === tpl ? (own ? "this group's template, marked ✅" : "this group's template, ⚠️ not marked yet: open the Control Panel once")
+               : own ? "✅ a gooTeX paper (marked with its own ID)"
                : (tpl && marks.indexOf(tpl) >= 0) ? "✅ a new copy of the template (marked when the Control Panel opens)"
-               : marks.length ? "🔒 a copy of another paper (gooTeX is off)" : "🔒 not started from the template (gooTeX is off)";
+               : !tpl ? "⚠️ unknown: GOOTEX_TEMPLATE_URL is not set, so gooTeX is off"
+               : other ? "🔒 a copy of another paper (gooTeX is off)" : "🔒 no mark: not started from the template (gooTeX is off)";
     msg += `🧬 This Doc:        ${kind}\n`;
+    msg += `🏷️ Its mark:         ${!marks.length ? "(none)" : marks.map(function(m) {
+             return m === id ? "this Doc's own ID" : m === tpl ? "the template's ID" : "the ID of another Doc, " + m; }).join("; ")}\n`;
     msg += `📄 Template in Config.gs: ${tpl ? "✅ set" : "⚠️ GOOTEX_TEMPLATE_URL not set"}\n`;
   } catch (e) { msg += `🧬 This Doc:        ⚠️ could not check (${e.message})\n`; }
   if (serverStatus.includes("🔴")) { msg += "\n👉 The GooTeX VM server is not responding. Contact your system administrator."; }

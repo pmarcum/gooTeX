@@ -1,6 +1,6 @@
 {
-  "gootex_core_version": 6,
+  "gootex_core_version": 7,
   "gootex_attached_version": 1,
-  "gootex_core_notes": "v6: gooTeX only works in Docs started from your group's template (a hidden mark is copied with the template; copies of papers are refused). Status bar shows — instead of System. In each gooTeX Doc and template: Extensions → Apps Script → Libraries → GooTeX_Core_Library → select version 6 → Save. Papers started before v6: mark once with apps_script/tools/MarkPaper.gs.",
+  "gootex_core_notes": "v7: Check System Status shows each Doc's hidden mark (and whether the template is marked); clearer message when GOOTEX_TEMPLATE_URL is not set. v6: gooTeX only works in Docs started from your group's template (copies of papers are refused). In each gooTeX Doc and template: Extensions → Apps Script → Libraries → GooTeX_Core_Library → select version 7 → Save.",
   "gootex_thin_client_notes": "Replace Code.gs and Config.gs in your thin client with the latest version from GitHub"
 }
