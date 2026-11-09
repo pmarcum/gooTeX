@@ -100,7 +100,7 @@ def lineage_refusal(data):
         return ('missing or malformed doc_id', '🔒 This request did not say which Doc it came from.')
     if not lineage:
         return ('no lineage (gooTeX library older than Core 6, or an unmarked Doc)',
-                '🔒 gooTeX did not recognise this Doc. If the gooTeX menu shows a version below 6, update the '
+                '🔒 gooTeX did not recognize this Doc. If the gooTeX menu shows a version below 6, update the '
                 'gooTeX library (Extensions → Libraries); otherwise open the Control Panel for details.')
     if lineage != doc_id:
         return ('lineage is another Doc (a copy of another paper)',
@@ -210,6 +210,12 @@ def run_linter(tex_content):
             return "\n".join(formatted)
         except: return ""
 
+def magick_compress(src_path, dst_path):
+    """Compress an image with ImageMagick (quality 82, shrunk to fit 975x1350, never enlarged). The two paths go to
+    magick as separate arguments, not through the shell, so any file name works and no name can run a command
+    (9 Nov 2026; until then a name containing `, $( ) or " was read by the shell)."""
+    subprocess.run(["magick", "convert", src_path, "-quality", "82", "-thumbnail", "975x1350>", dst_path])
+
 def run_image_optimizer(search_root):
     tasks = []
     for root, dirs, files in os.walk(search_root):
@@ -230,9 +236,7 @@ def run_image_optimizer(search_root):
             backup_path = os.path.join(root_path, f"{name}_UNCOMPRESSED{ext}")
             if os.path.exists(backup_path): return None
             os.rename(f_path, backup_path)
-            subprocess.run(
-                f"magick convert \"{backup_path}\" -quality 82 -thumbnail '975x1350>' \"{f_path}\"",
-                shell=True)
+            magick_compress(backup_path, f_path)
             return filename
         except: return None
     results = []
@@ -784,17 +788,20 @@ def handle_request():
             mime_type = data.get("mime", "image/png")
             if not filename or not b64:
                 return jsonify({"status": "error", "log": "Missing filename or image data."}), 400
+            tmp_dir = None
             try:
                 img_bytes   = base64.b64decode(b64)
-                name, ext   = os.path.splitext(filename)
                 tmp_dir     = tempfile.mkdtemp(prefix="gootex_compress_", dir=PROCESSING_BASE)
-                src_path    = os.path.join(tmp_dir, filename)
-                dst_path    = os.path.join(tmp_dir, f"{name}_compressed{ext}")
+                # The temporary copies get fixed names (only the extension is kept, which tells magick the format),
+                # so whatever the image is called, nothing is written outside tmp_dir; the reply still uses its name.
+                ext = os.path.splitext(filename)[1].lower()
+                if not re.fullmatch(r"\.[a-z0-9]{1,5}", ext):
+                    ext = {"image/jpeg": ".jpg", "image/tiff": ".tif", "image/gif": ".gif"}.get(mime_type, ".png")
+                src_path    = os.path.join(tmp_dir, "original" + ext)
+                dst_path    = os.path.join(tmp_dir, "compressed" + ext)
                 with open(src_path, "wb") as f:
                     f.write(img_bytes)
-                subprocess.run(
-                    f"magick convert \"{src_path}\" -quality 82 -thumbnail '975x1350>' \"{dst_path}\"",
-                    shell=True)
+                magick_compress(src_path, dst_path)
                 if not os.path.exists(dst_path):
                     return jsonify({"status": "error", "log": "Compression failed — magick produced no output."}), 500
                 with open(dst_path, "rb") as f:
@@ -812,7 +819,7 @@ def handle_request():
             except Exception as e:
                 return jsonify({"status": "error", "log": f"Compression error: {e}"}), 500
             finally:
-                shutil.rmtree(tmp_dir, ignore_errors=True)
+                if tmp_dir: shutil.rmtree(tmp_dir, ignore_errors=True)
 
         # ----------------------------------------------------------
         # WRITE TEXT FILES TO CACHE (always fresh)
@@ -884,9 +891,7 @@ def handle_request():
                                 backup_path = os.path.join(cache_dir, f"{name}_UNCOMPRESSED{ext}")
                                 if not os.path.exists(backup_path):
                                     os.rename(img_path, backup_path)
-                                    subprocess.run(
-                                        f"magick convert \"{backup_path}\" -quality 82 -thumbnail '975x1350>' \"{img_path}\"",
-                                        shell=True)
+                                    magick_compress(backup_path, img_path)
                                     compressed_size = os.path.getsize(img_path) if os.path.exists(img_path) else 0
                                     print(f"  🗜️  Auto-compressed: {actual_filename} ({img_size:,} → {compressed_size:,} bytes)")
                                     compression_notes.append(f"Info:0:Info:GooTeX:🗜️ Auto-compressed: {actual_filename} ({img_size//1024:,}KB → {compressed_size//1024:,}KB)")
