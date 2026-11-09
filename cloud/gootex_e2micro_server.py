@@ -36,6 +36,10 @@ PROCESSING_BASE   = os.environ.get('GOOTEX_PROCESSING_BASE', os.path.expanduser(
 # BibMan export endpoint (localhost, same host) and AI model — env-tunable.
 BIBMAN_URL        = os.environ.get('BIBMAN_URL', 'http://localhost:8081/api/export/bib')
 GEMINI_MODEL      = os.environ.get('GOOTEX_GEMINI_MODEL', 'gemini-2.5-flash')
+# WorPT integration — sibling service on the VM loopback. Read-only key + base URL,
+# both env-tunable. The key lives only in the systemd drop-in, never in a Doc/repo.
+WORPT_SECRET      = os.environ.get('WORPT_READ_CREDENTIAL', '')
+WORPT_URL         = os.environ.get('WORPT_URL', 'http://127.0.0.1:8083')
 
 # In-memory token store for zip downloads: {token: {'path': ..., 'expires': ...}}
 _download_tokens = {}
@@ -426,6 +430,141 @@ def apply_bibman_bib(cache_dir, file_name, job_name, library_name):
 
 
 # ==========================================
+# 📐  WORPT INTEGRATION
+#
+# A document names its WorPT work plan with a one-line marker in the source:
+#     % worpt: <12-char ID>
+# On any task that compiles (compile/draft/wordcount/zip) the server fetches the
+# plan's ten files (nine tables + worpt.sty) from WorPT on the VM loopback and
+# writes them into cache_dir BEFORE pdflatex runs, so \usepackage{worpt} and
+# \input{<table>} resolve. A digest (fingerprint) lets us skip rewriting unchanged
+# files. WorPT's "checks" (plan problems) and any error / offline condition are
+# surfaced in the compile log. The read-only key is used here only; it never
+# reaches a Doc or pdflatex's view beyond the normal process env.
+# ==========================================
+
+WORPT_ID_RE         = re.compile(r'^[ \t]*%+[ \t]*worpt:[ \t]*([A-Za-z0-9_-]{12})[ \t]*$', re.MULTILINE)
+WORPT_MARKER_RE     = re.compile(r'^[ \t]*%+[ \t]*worpt:', re.MULTILINE)
+
+def extract_worpt_id(tex_content):
+    """Returns (work_plan_id, marker_malformed).
+    - ('<12-char id>', False) when a valid '% worpt: <ID>' marker is found.
+    - (None, True)  when a '% worpt:' marker is present but the ID is malformed.
+    - (None, False) when there is no marker at all (document doesn't use WorPT)."""
+    txt = tex_content or ""
+    m = WORPT_ID_RE.search(txt)
+    if m:
+        return m.group(1), False
+    return None, bool(WORPT_MARKER_RE.search(txt))
+
+def fetch_worpt_tables(work_plan_id):
+    """Calls WorPT GET /api/proposals/<ID>/tables?files=1 on the VM loopback.
+    Returns ('ok', files_dict, digest, checks) | ('error', code, message)
+            | ('down', reason)."""
+    if not WORPT_SECRET:
+        return ('down', 'WORPT_READ_CREDENTIAL not set')
+    url = f"{WORPT_URL}/api/proposals/{work_plan_id}/tables?files=1"
+    print(f"  🔍 fetch_worpt_tables: GET {url}")
+    try:
+        resp = http_requests.get(url, headers={"X-WorPT-Credential": WORPT_SECRET}, timeout=15)
+    except http_requests.exceptions.RequestException as e:
+        print(f"  ⚠️  WorPT unreachable: {e}")
+        return ('down', str(e))
+    try:
+        data = resp.json()
+    except Exception as e:
+        return ('error', 'internal', f'WorPT sent a non-JSON reply (HTTP {resp.status_code}): {e}')
+    if data.get("status") == "ok":
+        files  = data.get("files", {}) or {}
+        digest = data.get("digest", "") or ""
+        checks = data.get("checks", []) or []
+        print(f"  ✅  WorPT: {len(files)} files, digest {digest[:8]}…, {len(checks)} checks")
+        return ('ok', files, digest, checks)
+    code = data.get("code", "unknown"); msg = data.get("message", "")
+    print(f"  ⚠️  WorPT error: code={code} msg={msg}")
+    return ('error', code, msg)
+
+def _worpt_clear_cached_files(cache_dir, cached):
+    """Remove the previously written WorPT files (names recorded in the manifest).
+    Used when the Doc now names a DIFFERENT plan and we cannot fetch the new one,
+    so the old plan's files can never masquerade as the current plan's."""
+    for n in (cached.get("files", []) or []):
+        p = os.path.join(cache_dir, os.path.basename(n))
+        try:
+            if os.path.exists(p): os.remove(p)
+        except Exception as e:
+            print(f"  ⚠️  WorPT: could not remove stale {n}: {e}")
+
+def apply_worpt_tables(cache_dir, doc_id, work_plan_id, manifest, marker_malformed=False):
+    """Fetch the work plan's files, write them into cache_dir (digest-gated),
+    update manifest['worpt'], and return formatted log items (checks / errors /
+    offline warnings) to append to the compile log. Never lets a different plan's
+    cached files stand in for the one the Doc now names."""
+    log_items = []
+
+    # Malformed marker — warn, fetch nothing (R1).
+    if marker_malformed or not work_plan_id:
+        log_items.append(format_log_item("WorPT", "0", "Warning", "WorPT",
+            "A '% worpt:' line is present but its work-plan ID looks malformed "
+            "(expected 12 characters: letters, digits, - or _). WorPT tables were not fetched."))
+        return log_items
+
+    cached = manifest.get("worpt", {}) if isinstance(manifest, dict) else {}
+    id_changed = bool(cached.get("id")) and cached.get("id") != work_plan_id
+
+    kind, *rest = fetch_worpt_tables(work_plan_id)
+
+    if kind == 'ok':
+        files, digest, checks = rest
+        have_all  = bool(files) and all(
+            os.path.exists(os.path.join(cache_dir, os.path.basename(n))) for n in files)
+        unchanged = (cached.get("id") == work_plan_id and cached.get("digest") == digest and have_all)
+        if not unchanged:
+            for name, content in files.items():
+                safe = os.path.basename(name)
+                with open(os.path.join(cache_dir, safe), "w", encoding="utf-8") as f:
+                    f.write(content if isinstance(content, str) else str(content))
+            manifest["worpt"] = {"id": work_plan_id, "digest": digest,
+                                 "files": sorted(os.path.basename(n) for n in files)}
+            save_cache_manifest(doc_id, manifest)
+            print(f"  📐  WorPT: wrote {len(files)} files for plan {work_plan_id}")
+        else:
+            print(f"  📐  WorPT: digest unchanged — kept cached files")
+        # Surface plan checks (shown on every compile, per design).
+        for c in checks:
+            lvl      = str(c.get("level", "")).lower()
+            type_lbl = "Error" if lvl == "fix" else "Warning"
+            item     = c.get("item", ""); msg = c.get("message", "")
+            log_items.append(format_log_item("WorPT", "0", type_lbl, "WorPT",
+                f"[{item}] {msg}" if item else msg))
+        return log_items
+
+    # Not OK: never compile with a different plan's leftovers (R2).
+    if id_changed:
+        _worpt_clear_cached_files(cache_dir, cached)
+        manifest["worpt"] = {"id": work_plan_id, "digest": "", "files": []}
+        save_cache_manifest(doc_id, manifest)
+
+    if kind == 'error':
+        code, message = rest
+        log_items.append(format_log_item("WorPT", "0", "Error", "WorPT",
+            f"WorPT could not provide the work-plan tables ({code}): {message}"))
+        return log_items
+
+    # kind == 'down'
+    reason    = rest[0] if rest else "unreachable"
+    worpt_sty = os.path.join(cache_dir, "worpt.sty")
+    if (not id_changed) and cached.get("id") == work_plan_id and os.path.exists(worpt_sty):
+        log_items.append(format_log_item("WorPT", "0", "Warning", "WorPT",
+            "WorPT is unreachable; compiling with the last-fetched work-plan tables, "
+            "which may be out of date."))
+    else:
+        log_items.append(format_log_item("WorPT", "0", "Error", "WorPT",
+            f"WorPT is unreachable and no current cached tables are available for this work plan ({reason})."))
+    return log_items
+
+
+# ==========================================
 # 📄  PDF ENCODER FOR RESPONSE
 # Returns PDF as base64 string for GAS to
 # decode and write to Drive via DriveApp.
@@ -546,6 +685,7 @@ def handle_request():
     cache_dir      = None
     bibman_warn    = []
     bibman_library = None
+    worpt_log      = []
     task           = None
     doc_id         = None
     try:
@@ -585,6 +725,40 @@ def handle_request():
                 return jsonify({'status': 'success', 'answer': response.text})
             except Exception as e:
                 return jsonify({'status': 'error', 'answer': f"AI Error: {str(e)}"}), 200
+
+        # ----------------------------------------------------------
+        # WORPT BLOCKS (Part B) — sidebar proxy to WorPT: returns the plan's
+        # table names, paste-in blocks (incl. blocks['worpt'] = the \usepackage
+        # line), title and checks. The WorPT read-only key never leaves the VM.
+        # ----------------------------------------------------------
+        if task == 'worpt_blocks':
+            work_plan_id = (data.get('worpt_id') or '').strip()
+            if not re.match(r'^[A-Za-z0-9_-]{12}$', work_plan_id):
+                return jsonify({'status': 'error', 'code': 'bad_id',
+                                'message': 'Work plan ID is missing or malformed (expected 12 characters).'}), 200
+            if not WORPT_SECRET:
+                return jsonify({'status': 'error', 'code': 'unreachable',
+                                'message': 'WorPT read-only key is not configured on the server.'}), 200
+            wurl = f"{WORPT_URL}/api/proposals/{work_plan_id}/tables?files=1"
+            try:
+                wresp = http_requests.get(wurl, headers={"X-WorPT-Credential": WORPT_SECRET}, timeout=15)
+                wdata = wresp.json()
+            except http_requests.exceptions.RequestException as e:
+                return jsonify({'status': 'error', 'code': 'unreachable',
+                                'message': f'WorPT is unreachable: {e}'}), 200
+            except Exception as e:
+                return jsonify({'status': 'error', 'code': 'internal',
+                                'message': f'WorPT sent an unreadable reply: {e}'}), 200
+            if wdata.get('status') != 'ok':
+                return jsonify({'status': 'error', 'code': wdata.get('code', 'unknown'),
+                                'message': wdata.get('message', '')}), 200
+            blocks = wdata.get('blocks', {}) or {}
+            tables = sorted([k for k in blocks.keys() if k != 'worpt'])
+            return jsonify({'status': 'ok',
+                            'title':  (wdata.get('work_plan', {}) or {}).get('title', ''),
+                            'tables': tables,
+                            'blocks': blocks,
+                            'checks': wdata.get('checks', []) or []}), 200
 
         # ----------------------------------------------------------
         # SETUP CACHE DIR
@@ -745,6 +919,18 @@ def handle_request():
             compiler_log_prefix = "" 
 
         # ----------------------------------------------------------
+        # WORPT INTEGRATION
+        # If the Doc names a WorPT work plan (% worpt: <ID>), fetch its ten
+        # table files into cache_dir now — BEFORE pdflatex — so \usepackage{worpt}
+        # and \input{<table>} resolve. Runs for compile/draft/wordcount/zip (any
+        # task that reaches here). Log lines appended after the compile below.
+        # ----------------------------------------------------------
+        worpt_id, worpt_bad = extract_worpt_id(flattened_text)
+        if worpt_id or worpt_bad:
+            worpt_log = apply_worpt_tables(cache_dir, doc_id, worpt_id, manifest,
+                                           marker_malformed=worpt_bad)
+
+        # ----------------------------------------------------------
         # COMPILE ENVIRONMENT
         # TEXINPUTS includes cache_dir so pdflatex finds all files
         # ----------------------------------------------------------
@@ -841,6 +1027,10 @@ def handle_request():
                 for k in bibman_warn
             )
             compiler_log = (compiler_log + "\n" + warn_lines).strip()
+
+        # Append WorPT checks / errors / offline warnings to the log
+        if worpt_log:
+            compiler_log = (compiler_log + "\n" + "\n".join(worpt_log)).strip()
 
         # Update last_compiled in manifest
         manifest["last_compiled"] = datetime.datetime.utcnow().isoformat()

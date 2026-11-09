@@ -186,6 +186,8 @@
         title="Inserts references to&#10;Sections in document&#10;at cursor position.&#10;&nbsp;&nbsp;Ref: inserts '\S\ref{...}'">Sects</div>
     <div class="tab" id="tab-snip" onclick="switchTab('snip')" style="font-family:consolas; font-weight:bold;"
         title="Code snippets & templates&#10;(Can also define custom snippets)">{ }</div>
+    <div class="tab" id="tab-worpt" onclick="switchTab('worpt')" style="display:none;"
+        title="WorPT work-plan tables&#10;Insert budget/schedule tables from your WorPT work plan.">WorPT</div>
   </div>
   <div class="content-area">
     <div id="content-log" class="tab-content active"><div id="log-list"></div></div>
@@ -226,6 +228,7 @@
         </div>
       </div>
     </div>
+    <div id="content-worpt" class="tab-content"><div id="worpt-list" style="padding:10px;"></div></div>
   </div>
   <div id="status-hud">READY</div>
   <div id="ai-modal" style="display:none; position:fixed; top:10%; left:10%; right:10%; bottom:15%; background:#252526; border:1px solid #0e639c;
@@ -262,7 +265,8 @@
       'figs': 'Click on REF & SEC to cite Figure & Section.',
       'tables': 'Click on REF & SEC to cite Table & Section',
       'sects': 'Click Ref to cite Section',
-      'snip': 'Insert LaTeX templates'
+      'snip': 'Insert LaTeX templates',
+      'worpt': 'Click a table to insert it at the cursor'
     };
     const statusHints = {
       'log': '✨ Ready',
@@ -288,11 +292,12 @@
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       document.getElementById('content-' + id).classList.add('active');
       document.getElementById('help-panel').innerText = helpStrings[id] || "";
-      var ph = {'refs': 'a:smith y:2020- t:spiral j:apj', 'figs': 'Search labels or captions', 'tables': 'Search labels or captions', 'sects': 'Search labels or titles', 'log': 'Search error/warning log', 'snip': 'Search templates'};
+      var ph = {'refs': 'a:smith y:2020- t:spiral j:apj', 'figs': 'Search labels or captions', 'tables': 'Search labels or captions', 'sects': 'Search labels or titles', 'log': 'Search error/warning log', 'snip': 'Search templates', 'worpt': 'Filter tables'};
       document.getElementById('universal-filter').placeholder = ph[id] || "Filter...";
       applyFilter();
       /* FIX: Only clear status if NOT Success AND NOT Busy */
       if (!isSuccessState && !systemBusy) updateStatus("");
+      if (id === 'worpt') loadWorpt();   // WorPT: lazy-load the plan's tables on tab open
     }
 
     /* === FAIL-SAFE INITIALIZATION === */
@@ -1158,7 +1163,80 @@
         google.script.run
           .withSuccessHandler(function(model) { geminiModel = model || geminiModelBackup; })
           .dispatch('getGeminiModel');
+        // Reveal the WorPT tab only when this document has a '% worpt:' marker.
+        google.script.run
+          .withSuccessHandler(function(on){ if (on) { var t = document.getElementById('tab-worpt'); if (t) t.style.display = ''; } })
+          .dispatch('worptIsEnabled');
     };
+
+    // ── WORPT TAB (Part B) ─────────────────────────────────────────────────
+    var worptBlocks  = {};                       // name -> paste-in block (from last fetch)
+    var worptPkgLine = "\\usepackage{worpt}";    // overwritten by blocks['worpt'] when fetched
+    function worptEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+    function loadWorpt() {
+      var el = document.getElementById('worpt-list');
+      el.innerHTML = "<div style='padding:30px 10px; text-align:center; color:#888;'>📐 Loading WorPT…</div>";
+      google.script.run
+        .withSuccessHandler(renderWorpt)
+        .withFailureHandler(function(e){ el.innerHTML = "<div style='padding:20px; color:#e57373;'>Couldn't load WorPT: " + worptEsc(e.message) + "</div>"; })
+        .dispatch('worptFetchBlocks');
+    }
+
+    function renderWorpt(data) {
+      var el = document.getElementById('worpt-list');
+      if (!data) { el.innerHTML = "<div style='padding:20px; color:#e57373;'>No response from server.</div>"; return; }
+      if (!data.enabled) {
+        el.innerHTML = "<div style='padding:14px; color:#888; font-size:12px; line-height:1.5;'>WorPT isn't enabled for this document. Turn it on from the menu: <b>GooTeX ▸ 🛠️ Utilities ▸ 📐 Use WorPT in this document</b>.</div>";
+        return;
+      }
+      if (data.error) {
+        el.innerHTML = "<div style='padding:14px; color:#e57373;'>⚠️ " + worptEsc(data.error) + "</div>" +
+                       "<button class='macro-btn' onclick='loadWorpt()'>↻ Retry</button>";
+        return;
+      }
+      worptBlocks = data.blocks || {};
+      if (worptBlocks['worpt']) worptPkgLine = worptBlocks['worpt'];
+      var html = "";
+      if (data.title) html += "<div style='font-size:11px; color:#4fc1ff; font-weight:700; margin-bottom:8px;'>" + worptEsc(data.title) + "</div>";
+      (data.checks || []).forEach(function(c){
+        var isFix = String(c.level).toLowerCase() === 'fix';
+        html += "<div style='font-size:11px; color:" + (isFix ? '#e57373' : '#e0b24f') + "; margin-bottom:4px;'>" +
+                (isFix ? '🔴' : '🟡') + " <b>" + worptEsc(c.item||'') + "</b> " + worptEsc(c.message||'') + "</div>";
+      });
+      html += "<div style='font-size:11px; color:#888; margin:10px 0 6px; font-weight:700; letter-spacing:1px;'>TABLES — click to insert at cursor</div>";
+      (data.tables || []).forEach(function(name){
+        html += "<div class='filter-item' style='display:flex; align-items:center; gap:6px; margin-bottom:5px;'>" +
+          "<button class='macro-btn' style='flex:1; text-align:left;' onclick=\"worptInsert('" + worptEsc(name) + "')\">➕ " + worptEsc(name) + "</button>" +
+          "<a href='https://github.com/pmarcum/WorPT/tree/main/latexTableTemplates/" + encodeURIComponent(name) + "' target='_blank' style='font-size:10px; color:#4fc1ff; text-decoration:none;'>preview</a>" +
+          "</div>";
+      });
+      html += "<button class='macro-btn' style='margin-top:10px;' onclick='loadWorpt()'>↻ Refresh</button>";
+      el.innerHTML = html;
+    }
+
+    // (Enabling WorPT is done from GooTeX ▸ Utilities ▸ Use WorPT in this document —
+    //  no in-tab enable button. The tab only appears once the marker is present.)
+
+    function worptInsert(name, force) {
+      var block = worptBlocks[name];
+      if (!block) { updateStatus("⚠️ No block for " + name + " — try Refresh."); return; }
+      setSystemBusy(true);
+      google.script.run
+        .withSuccessHandler(function(r){
+          setSystemBusy(false);
+          if (!r) return;
+          if (r.status === 'duplicate') {
+            if (confirm(r.message + "\n\nInsert another copy anyway?")) worptInsert(name, true);
+          } else if (r.status === 'ok') {
+            updateStatus(r.pkgNote ? r.pkgNote : ("Inserted " + name));
+          } else {
+            updateStatus("⚠️ " + (r.message || "insert failed"));
+          }
+        })
+        .withFailureHandler(function(e){ setSystemBusy(false); updateStatus("⚠️ " + e.message); })
+        .dispatch('worptInsertTable', name, block, worptPkgLine, !!force);
+    }
 
   </script>
 </body>

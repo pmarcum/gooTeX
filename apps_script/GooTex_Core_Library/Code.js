@@ -31,7 +31,8 @@ function onOpen() {
   menu.addSubMenu(ui.createMenu('🛠️ Utilities')
       .addItem('📝 Count Selected Words',  'taskSelectionCount')
       .addItem('📉 Compress Image',        'taskOptimizeImages')
-      .addItem('🤝 Invite Co-Author',      'taskInviteCoAuthor'));
+      .addItem('🤝 Invite Co-Author',      'taskInviteCoAuthor')
+      .addItem('📐 Use WorPT in this document', 'taskUseWorpt'));
   // 🔧 Admin Only
   menu.addSeparator();
   menu.addSubMenu(ui.createMenu('🔧 Admin Only')
@@ -1729,4 +1730,132 @@ function debugTables() {
     log += "Label: " + t.label + " | section_ref: " + (t.section_ref || "NONE") + "\n";
   });
   return log;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📐 WORPT SIDEBAR SUPPORT (Part B) — all library-side; called from Sidebar.html
+//    via google.script.run.dispatch('<fn>', ...). dispatch() is generic, so NO
+//    bound-script (template) changes are needed — a library update alone enables
+//    this in existing documents.
+// ═══════════════════════════════════════════════════════════════════════════
+
+var WORPT_MARKER_RE = /^[ \t]*%+[ \t]*worpt:[ \t]*([A-Za-z0-9_-]{12})[ \t]*$/m;
+
+// Read the '% worpt: <ID>' marker from the document body. Returns the 12-char ID, or null.
+function _worptGetId() {
+  try {
+    var m = WORPT_MARKER_RE.exec(DocumentApp.getActiveDocument().getBody().getText());
+    return m ? m[1] : null;
+  } catch (e) { return null; }
+}
+
+// Called when the WorPT tab opens. Returns one of:
+//   { enabled:false }                                  — no marker; sidebar shows setup prompt
+//   { enabled:true, title, tables, blocks, checks }    — marker present, WorPT reachable
+//   { enabled:true, error:"<message>" }                — marker present but server/WorPT error
+function worptFetchBlocks() {
+  var id = _worptGetId();
+  if (!id) return { enabled: false };
+  if (!_CONFIG || !_CONFIG.GOOTEX_SERVER_URL) return { enabled: true, error: "Server URL missing — check Config." };
+  var doc = DocumentApp.getActiveDocument();
+  var baseUrl = _CONFIG.GOOTEX_SERVER_URL.endsWith('/') ? _CONFIG.GOOTEX_SERVER_URL : _CONFIG.GOOTEX_SERVER_URL + '/';
+  var payload = { task: "worpt_blocks", doc_id: doc.getId(), lineage: _lineage(doc), worpt_id: id };
+  try {
+    var resp = UrlFetchApp.fetch(baseUrl, {
+      method: "post", contentType: "application/json",
+      payload: JSON.stringify(payload), muteHttpExceptions: true,
+      headers: { "ngrok-skip-browser-warning": "true", "X-GooTeX-Credential": _CONFIG.GOOTEX_CREDENTIAL || "" }
+    });
+    if (resp.getResponseCode() !== 200) return { enabled: true, error: "Server error (HTTP " + resp.getResponseCode() + ")." };
+    var d = JSON.parse(resp.getContentText());
+    if (d.status === 'ok') return { enabled: true, title: d.title || "", tables: d.tables || [], blocks: d.blocks || {}, checks: d.checks || [] };
+    return { enabled: true, error: (d.message || "WorPT error") + (d.code ? " (" + d.code + ")" : "") };
+  } catch (e) {
+    return { enabled: true, error: "Couldn't reach the server: " + e.message };
+  }
+}
+
+// True when this document has a '% worpt:' marker. The sidebar calls this on load
+// to decide whether to SHOW the WorPT tab (it stays hidden on ordinary papers).
+function worptIsEnabled() { return !!_worptGetId(); }
+
+// Menu action: GooTeX ▸ 🛠️ Utilities ▸ 📐 Use WorPT in this document.
+// Prompts for the Work plan ID, inserts the '% worpt: <ID>' marker at the top, and
+// reopens the Control Panel so the WorPT tab appears. Requires the one-line
+// taskUseWorpt wrapper in the bound script (menu items can't call the library directly).
+function taskUseWorpt() {
+  var ui   = DocumentApp.getUi();
+  var body = DocumentApp.getActiveDocument().getBody();
+  if (WORPT_MARKER_RE.test(body.getText())) {
+    ui.alert("WorPT is already enabled for this document — open the Control Panel and use the WorPT tab.");
+    return;
+  }
+  var res = ui.prompt("Use WorPT in this document",
+    "Paste your WorPT Work plan ID (from WorPT ▸ Settings — 12 characters):", ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  var id = (res.getResponseText() || "").trim();
+  if (!/^[A-Za-z0-9_-]{12}$/.test(id)) {
+    ui.alert("That doesn't look like a Work plan ID (expected 12 characters: letters, digits, - or _). Nothing was changed.");
+    return;
+  }
+  body.insertParagraph(0, "% worpt: " + id);
+  try { taskOpenSidebar(); } catch (e) {}
+  ui.alert("WorPT enabled. The WorPT tab is now in the Control Panel.");
+}
+
+// Insert a table's paste-in block at the cursor. Policy (B.7): never silently
+// overwrite an edited block — if the table is already present (found via its
+// 'start <name>' marker), return status "duplicate" so the sidebar can ask
+// before adding a second copy. Also auto-inserts \usepackage{worpt} if missing.
+//
+// CRITICAL: each line of the block is inserted as its OWN paragraph. The block
+// starts with a '%::: start <name> :::' comment line, and gooTeX reconstructs
+// each Doc paragraph as one .tex line. If the whole block is inserted with a
+// single cursor.insertText("\n"+block+"\n"), the newlines collapse into one line
+// and the leading '%' comments out the entire table (it then never compiles).
+// Inserting paragraph-by-paragraph keeps every line — and every comment marker —
+// on its own .tex line, the same way \usepackage{worpt} is inserted below.
+function worptInsertTable(name, block, worptPackageLine, force) {
+  try {
+    var doc  = DocumentApp.getActiveDocument();
+    var body = doc.getBody();
+    // Colon-count-agnostic duplicate check (markers use many colons, e.g.
+    // '%:::::::::: start isANONfte ::::::::::').
+    if (!force && body.getText().indexOf("start " + name) !== -1) {
+      return { status: "duplicate", message: "This table is already in your document (your edits are kept)." };
+    }
+    var pkgNote = _worptEnsurePackage(body, worptPackageLine);
+    var lines = String(block).replace(/\r/g, "").split("\n");
+    if (lines.length && lines[lines.length - 1] === "") lines.pop();   // drop one trailing blank
+    // Find the paragraph the cursor sits in; insert the block right after it.
+    var cursor = doc.getCursor();
+    var idx;
+    if (cursor) {
+      var el = cursor.getElement();
+      while (el && el.getType() !== DocumentApp.ElementType.PARAGRAPH &&
+             el.getType() !== DocumentApp.ElementType.LIST_ITEM && el.getParent()) {
+        el = el.getParent();
+      }
+      idx = el ? body.getChildIndex(el) + 1 : body.getNumChildren();
+    } else {
+      idx = body.getNumChildren();
+    }
+    for (var i = 0; i < lines.length; i++) { body.insertParagraph(idx + i, lines[i]); }
+    return { status: "ok", pkgNote: pkgNote };
+  } catch (e) { return { status: "error", message: e.message }; }
+}
+
+// Ensure \usepackage{worpt} is present as the last package before \begin{document}.
+// Returns a short note for the sidebar status line ("" if it was already there).
+function _worptEnsurePackage(body, worptPackageLine) {
+  if (/\\usepackage\{worpt\}/.test(body.getText())) return "";
+  var line = (worptPackageLine || "\\usepackage{worpt}").replace(/\s+$/, "");
+  var paras = body.getParagraphs();
+  for (var i = 0; i < paras.length; i++) {
+    if (paras[i].getText().indexOf("\\begin{document}") !== -1) {
+      body.insertParagraph(i, line);
+      return "Added \\usepackage{worpt} to your preamble.";
+    }
+  }
+  return "⚠️ Couldn't find \\begin{document} — add " + line + " as your last package.";
 }

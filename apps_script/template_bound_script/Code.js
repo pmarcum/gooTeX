@@ -32,6 +32,7 @@ function taskShowHelp()       { GooTeX_Core_Library.setConfig(CONFIG); return Go
 function taskSelectionCount() { GooTeX_Core_Library.setConfig(CONFIG); return GooTeX_Core_Library.taskSelectionCount(); }
 function taskOptimizeImages() { GooTeX_Core_Library.setConfig(CONFIG); return GooTeX_Core_Library.taskOptimizeImages(); }
 function taskInviteCoAuthor() { GooTeX_Core_Library.setConfig(CONFIG); return GooTeX_Core_Library.taskInviteCoAuthor(); }
+function taskUseWorpt()        { GooTeX_Core_Library.setConfig(CONFIG); return GooTeX_Core_Library.taskUseWorpt(); }
 function taskShowAdminHelp()  { GooTeX_Core_Library.setConfig(CONFIG); return GooTeX_Core_Library.taskShowAdminHelp(); }
 function setupDrive()         { GooTeX_Core_Library.setConfig(CONFIG); return GooTeX_Core_Library.setupDrive(); }
 function checkStatus()        { GooTeX_Core_Library.setConfig(CONFIG); return GooTeX_Core_Library.checkStatus(); }
