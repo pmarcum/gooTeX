@@ -761,6 +761,7 @@ function _parseBibContent(bibContent) {
       pages:       extractField("pages"),
       year:        year,
       author:      author.replace(/[\{\}]/g, ""),
+      tags:        extractField("keywords").replace(/[\{\}]/g, "").trim(),
       used:        false
     });
   });

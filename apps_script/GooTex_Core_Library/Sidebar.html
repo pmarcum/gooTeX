@@ -267,7 +267,7 @@
     var highlightClearTimer = null;
     const helpStrings = {
       'log': 'Click entry to jump to document location',
-      'refs': 'Use Auth/Yr/Title/Journal combo, or Keyword',
+      'refs': 'Filter: a:auth y:yr t:title j:journal tag:tag (or plain words)',
       'figs': 'Click on REF & SEC to cite Figure & Section.',
       'tables': 'Click on REF & SEC to cite Table & Section',
       'sects': 'Click Ref to cite Section',
@@ -298,7 +298,7 @@
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       document.getElementById('content-' + id).classList.add('active');
       document.getElementById('help-panel').innerText = helpStrings[id] || "";
-      var ph = {'refs': 'a:smith y:2020- t:spiral j:apj', 'figs': 'Search labels or captions', 'tables': 'Search labels or captions', 'sects': 'Search labels or titles', 'log': 'Search error/warning log', 'snip': 'Search templates', 'worpt': 'Filter tables'};
+      var ph = {'refs': 'a:smith y:2020- t:spiral j:apj tag:agn', 'figs': 'Search labels or captions', 'tables': 'Search labels or captions', 'sects': 'Search labels or titles', 'log': 'Search error/warning log', 'snip': 'Search templates', 'worpt': 'Filter tables'};
       document.getElementById('universal-filter').placeholder = ph[id] || "Filter...";
       applyFilter();
       /* FIX: Only clear status if NOT Success AND NOT Busy */
@@ -626,7 +626,8 @@
       div.dataset.title = (item.title || "").toLowerCase();
       div.dataset.year = item.year || "0";
       div.dataset.journal = [item.journal, item.volume, item.pages].join(" ").toLowerCase();
-      div.dataset.fulltext = [item.key, item.title, item.journal, item.volume, item.pages, item.year, item.author].join(" ").toLowerCase();
+      div.dataset.tags = (item.tags || "").toLowerCase();
+      div.dataset.fulltext = [item.key, item.title, item.journal, item.volume, item.pages, item.year, item.author, item.tags].join(" ").toLowerCase();
 
       div.innerHTML = "<button class='btn-insert' title='Insert Reference' onclick='insertRef(\"" + item.key + "\", \"cite\")'>Cite</button><div class='ref-details'><span class='smart-label'>" + smartLabel + "</span>, " + details.join(', ') + "</div>";
       return div;
@@ -695,12 +696,14 @@
 
       /* Safe Regex Construction */
       var terms = raw.match(new RegExp("(?:[a-z]:\\s*[^ ]+|[^ ]+)", "g")) || [];
-      var crit = { author: null, title: null, year: null, journal: null, generic: [] };
+      var crit = { author: null, title: null, year: null, journal: null, tag: null, generic: [] };
 
       for(var i=0; i<terms.length; i++) {
           var term = terms[i];
           /* Safe Regex Matching */
-          if (term.match(new RegExp("^a:\\s?"))) {
+          if (term.match(new RegExp("^tag:\\s?"))) {
+              crit.tag = term.replace(new RegExp("^tag:\\s?"), '').trim();
+          } else if (term.match(new RegExp("^a:\\s?"))) {
               crit.author = term.replace(new RegExp("^a:\\s?"), '').trim();
           } else if (term.match(new RegExp("^t:\\s?"))) {
               crit.title = term.replace(new RegExp("^t:\\s?"), '').trim();
@@ -721,6 +724,7 @@
            var ft = el.dataset.fulltext || "";
            match &= crit.generic.every(t => ft.indexOf(t) > -1);
         }
+        if (match && crit.tag) match &= ((el.dataset.tags || "").indexOf(crit.tag) > -1);
         if (match && crit.author) match &= (el.dataset.author || "").startsWith(crit.author);
         if (match && crit.title) match &= ((el.dataset.title || "").indexOf(crit.title) > -1);
         if (match && crit.journal) match &= ((el.dataset.journal || "").indexOf(crit.journal) > -1);
