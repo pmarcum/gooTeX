@@ -700,7 +700,7 @@ function _fetchBibManRefs(library, bibmanBaseUrl, credential) {
   // Returns parsed refs array for Refs tab display.
   try {
     const url  = bibmanBaseUrl + "bibman/api/export/bib-text?library=" +
-                 encodeURIComponent(library);
+                 encodeURIComponent(library) + "&tags=1";
     const resp = UrlFetchApp.fetch(url, {
       "method":             "get",
       "muteHttpExceptions": true,
@@ -735,15 +735,25 @@ function _parseBibContent(bibContent) {
       const remainder = entry.substring(startIdx);
       if (!remainder.length) return "";
       const delimiter = remainder[0];
-      if (delimiter !== '{' && delimiter !== '"') return "";
-      const closeChar = (delimiter === '{') ? '}' : '"';
+      if (delimiter !== '{' && delimiter !== '"') {
+        // Bare value with no braces/quotes (ADS-style, e.g. `year = 2020`):
+        // read up to the next comma, newline, or the entry's closing brace.
+        const bare = remainder.match(/^[^,\n}]*/);
+        return bare ? bare[0].trim() : "";
+      }
+      if (delimiter === '"') {
+        // Quote-delimited value, e.g. `author = "Smith, J."` — up to the closing quote.
+        const end = remainder.indexOf('"', 1);
+        return end > 0 ? remainder.substring(1, end) : "";
+      }
+      // Brace-delimited value — match nested braces through to the closing brace.
       let depth = 0, result = "";
       for (let i = 0; i < remainder.length; i++) {
         const char = remainder[i];
         if (char === '{') depth++;
         if (char === '}') depth--;
         result += char;
-        if (depth === 0 && char === closeChar)
+        if (depth === 0 && char === '}')
           return result.substring(1, result.length - 1);
       }
       return "";
