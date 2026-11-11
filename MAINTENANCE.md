@@ -31,6 +31,8 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 | Which Docs gooTeX works in | Docs carrying their own ID as their hidden lineage mark (named range `gootex_lineage:<Doc ID>`), since Core 6 — new copies of the template get it automatically; copies of papers are refused |
 | Per-paper template | Your filled-in copy of the public template |
 
+**Backups (server half):** the VM's whole disk, gooTeX included, is copied by a weekly disk snapshot (schedule `weekly-vm-backup`, Sundays 2–3 am California time, each kept 8 days). Setup, checking, snapshots by hand, stopping and restoring are described in BibMan's MAINTENANCE.md, section "Backups", since BibMan, gooTeX and WorPT share the VM. The papers themselves live in Google Docs and Drive, not on the VM.
+
 ---
 
 ## 2. Secrets & settings inventory
