@@ -12,14 +12,17 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 
 | Thing | Location |
 | :--- | :--- |
-| Compile server code | `/home/bibman/gootex/gootex_e2micro_server.py` |
+| Install (a git checkout of the repo) | `/home/bibman/gootex/` — a clone of `github.com/pmarcum/gooTeX`; code updates are a `git pull` (see §3) |
+| Compile server code | `/home/bibman/gootex/cloud/gootex_e2micro_server.py` |
 | Python venv | `/home/bibman/gootex/venv/` |
 | systemd unit | `/etc/systemd/system/gootex.service` |
 | **Secrets** (credentials, optional Gemini key) | systemd drop-in: `/etc/systemd/system/gootex.service.d/override.conf` |
 | Per-document compile cache | `/home/bibman/gootex_cache/{doc_id}/` |
 | Scratch/processing dir | `/home/bibman/gootex_processing/` |
-| Cache-cleanup script | `/home/bibman/gootex/gootex_cache_cleanup.py` (monthly cron) |
+| Cache-cleanup script | `/home/bibman/gootex/cloud/gootex_cache_cleanup.py` (monthly cron) |
 | Cleanup log | `/home/bibman/gootex_cache_cleanup.log` |
+
+> **The venv is not relocatable.** Its console scripts hard-code the interpreter's absolute path, so moving or renaming the install directory breaks the service (`status=203/EXEC`). To relocate the install, recreate the venv at the new path — `python3 -m venv venv && venv/bin/pip install -r cloud/requirements.txt` — rather than moving `venv/`.
 
 **Google half:**
 
@@ -41,6 +44,7 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 | :--- | :--- | :--- |
 | `GOOTEX_CREDENTIAL` | server drop-in **+** template `CONFIG` | Shared secret authenticating Apps Script → server. **Must be identical in both.** |
 | `BIBMAN_CREDENTIAL` | server drop-in **+** template `CONFIG` | Only if BibMan is in use. gooTeX sends it as the `X-BibMan-Credential` header. Set it to BibMan's **read-only bibliography-export credential** (BibMan's `EXPORT_CREDENTIAL`) — **not** BibMan's master key — since gooTeX only ever reads bibliographies. It is independent of BibMan's master key, so it rotates without touching it. |
+| `WORPT_READ_CREDENTIAL` | server drop-in **only** | Only if WorPT is in use. gooTeX sends it as the `X-WorPT-Credential` header when it fetches proposal tables from WorPT's loopback API (`WORPT_URL`, default `http://127.0.0.1:8083`). Set it to WorPT's **read-only** credential — gooTeX only ever reads from WorPT. Unlike `BIBMAN_CREDENTIAL`, it has **no** template `CONFIG` entry: WorPT is contacted entirely server-side. |
 | `GEMINI_API_KEY` | template `CONFIG` (live path) — optionally also server drop-in (dormant route) | One shared key for the whole group. See §4. |
 | Gemini **model** | library `Config.gs` → `GOOTEX_GEMINI_MODEL` | Live path. The server's hardcoded `gemini-2.5-flash` only matters if the server AI route is lit. |
 | `GOOTEX_SERVER_URL` | template `CONFIG` | The public HTTPS endpoint (ends in `/gootex`). |
@@ -60,6 +64,8 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 
 **Rotate `BIBMAN_CREDENTIAL`:** it must equal BibMan's read-only `EXPORT_CREDENTIAL`. Generate a new value on the BibMan side, then update it in **both** gooTeX places (server drop-in + template `CONFIG`) and `sudo systemctl restart gootex`. This is independent of BibMan's master key (`GAS_CREDENTIAL`) — rotating one never touches the other.
 
+**Rotate `WORPT_READ_CREDENTIAL`:** it must equal WorPT's read-only credential. Generate a new value on the WorPT side, then update it in the gooTeX server drop-in (`sudo systemctl edit gootex`) and `sudo systemctl restart gootex`. gooTeX holds this secret only on the server (there is no template `CONFIG` entry), so it changes in exactly one place on the gooTeX side.
+
 **Change the Gemini key:** update `CONFIG.GEMINI_API_KEY` in the template's bound script (and the server drop-in too, only if you use the server-side AI route — then restart the service). Rotate the old key in Google AI Studio.
 
 **Change the Gemini model:** edit `GOOTEX_GEMINI_MODEL` in the library's `Config.gs`. (If you have lit the server-side AI route, also change the hardcoded model in `gootex_e2micro_server.py` and restart.)
@@ -72,9 +78,14 @@ For the person running a live gooTeX instance. This is the map of **where everyt
 
 **Move to a new template:** set the new template's `GOOTEX_TEMPLATE_URL` to its own URL and open the Control Panel in it once. Existing papers keep working (each carries its own ID), and copies of the old template still work because their `Config.gs` points at the old template.
 
-**Update the gooTeX code (new release):** pull the new server code onto the VM and `sudo systemctl restart gootex`; update the `GooTeX_Core_Library` Apps Script; bump `version.json` in the repo so running instances show the "update available" banner.
+**Update the gooTeX code (new release):** the VM is a git checkout of the repo, so the server half updates with a pull and a restart:
+```bash
+sudo -u bibman -H git -C /home/bibman/gootex pull
+sudo systemctl restart gootex
+```
+Run `git` as the install's owner (`bibman`), not root, so the checkout keeps consistent ownership. If `cloud/requirements.txt` changed, reinstall deps before the restart: `sudo -u bibman -H /home/bibman/gootex/venv/bin/pip install -r /home/bibman/gootex/cloud/requirements.txt`. Do **not** move or rename the install directory as part of an update — the venv is not relocatable (see §1). The Apps Script half is separate and manual: update `GooTeX_Core_Library` (paste the changed files, or re-copy the project), then bump the version numbers in `version.json` (and `GOOTEX_CORE_VERSION` / `GOOTEX_ATTACHED_VERSION` to match) so running instances show the "update available" banner.
 
-**Cache growing too large / change retention:** edit `MAX_AGE_DAYS` in `gootex_cache_cleanup.py` (default 90), or run it by hand: `~/gootex/venv/bin/python3 ~/gootex/gootex_cache_cleanup.py`. Set `DRY_RUN = True` to preview without deleting.
+**Cache growing too large / change retention:** edit `MAX_AGE_DAYS` in `gootex_cache_cleanup.py` (default 90), or run it by hand: `~/gootex/venv/bin/python3 ~/gootex/cloud/gootex_cache_cleanup.py`. Set `DRY_RUN = True` to preview without deleting.
 
 ---
 
@@ -99,6 +110,7 @@ Check or change the tier in **Google AI Studio / Google Cloud console** for the 
 | Nothing happens / connection error | Server down or tunnel down — `sudo systemctl status gootex`; test the HTTPS endpoint's `/health` |
 | AI button says "API Key missing" | No usable `GEMINI_API_KEY` on the active path (template `CONFIG`, or server drop-in if using that route) |
 | Citations don't resolve with `bibman:` | BibMan down, or `BIBMAN_CREDENTIAL` mismatch between gooTeX and BibMan |
+| WorPT tables don't appear, or the Log shows "WorPT is unreachable" | WorPT service down, `WORPT_READ_CREDENTIAL` mismatch, or a malformed `% worpt:` marker in the Doc (needs a 12-char ID) |
 | Disk filling up | Cache under `~/gootex_cache/`; run the cleanup script or lower `MAX_AGE_DAYS` |
 
 Useful commands:
