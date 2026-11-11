@@ -432,6 +432,72 @@ def apply_bibman_bib(cache_dir, file_name, job_name, library_name):
     print(f"  🔍 .bib file exists after write: {os.path.exists(bib_path)}")
     return missing
 
+def _split_bib_entries(text):
+    """Brace-match BibTeX text into top-level entries (A5 merge helper). Returns
+    (entries, skipped): entries = [{kind, key, raw}] with key=None for
+    @string/@preamble/@comment; skipped = count of @-entries whose braces did not balance."""
+    text = text or ""; n = len(text); out, skipped, i = [], 0, 0
+    while True:
+        at = text.find("@", i)
+        if at < 0: break
+        j = at + 1
+        while j < n and text[j].isalpha(): j += 1
+        kind = text[at + 1:j].lower()
+        while j < n and text[j] in " \t\r\n": j += 1
+        if j >= n or text[j] != "{":                      # only brace-delimited entries
+            i = at + 1; continue
+        depth, k = 0, j
+        while k < n:
+            if   text[k] == "{": depth += 1
+            elif text[k] == "}":
+                depth -= 1
+                if depth == 0: break
+            k += 1
+        if depth != 0: skipped += 1; break                # unbalanced → drop the rest
+        raw = text[at:k + 1]
+        key = None if kind in ("string", "preamble", "comment") else text[j + 1:k].split(",", 1)[0].strip()
+        out.append({"kind": kind, "key": key, "raw": raw})
+        i = k + 1
+    return out, skipped
+
+def merge_local_bib(cache_dir, library_bib_name, bibman_text, cited_keys, missing_keys):
+    """A5: fold uploaded local .bib entries into the BibMan bibliography as a FALLBACK.
+    BibMan always wins on a duplicate key (case-insensitive). @string/@preamble are carried
+    through; @comment, duplicate-local, and malformed entries are dropped with a quiet note.
+    Returns (merged_text, adjusted_missing, notes). notes are quiet (journal only)."""
+    notes, local_files = [], []
+    for fn in sorted(os.listdir(cache_dir)):
+        if not fn.lower().endswith(".bib") or fn == library_bib_name or "_bibman" in fn: continue
+        try:
+            with open(os.path.join(cache_dir, fn), encoding="utf-8", errors="replace") as f:
+                local_files.append((fn, f.read()))
+        except Exception as e:
+            notes.append(f"{fn}: could not read ({e})")
+    if not local_files:
+        return bibman_text, missing_keys, notes
+    supplied = {(k or "").lower() for k in (set(cited_keys) - set(missing_keys))}
+    extras, seen, skipped_total = [], set(), 0
+    for fn, text in local_files:
+        ents, skipped = _split_bib_entries(text); skipped_total += skipped
+        for e in ents:
+            if e["kind"] in ("string", "preamble"): extras.append(e["raw"]); continue
+            if e["kind"] == "comment": continue
+            lc = (e["key"] or "").lower()
+            if not lc: continue
+            if lc in supplied: notes.append(f"'{e['key']}': BibMan entry used, local copy ignored"); continue
+            if lc in seen:     notes.append(f"'{e['key']}': duplicate in local .bib, first kept"); continue
+            seen.add(lc); extras.append(e["raw"])
+    if skipped_total: notes.append(f"{skipped_total} malformed local entr{'y' if skipped_total == 1 else 'ies'} skipped")
+    if not extras:
+        return bibman_text, missing_keys, notes
+    merged = (bibman_text or "").rstrip() + \
+        "\n\n% ---- local .bib fallback entries (BibMan wins on duplicate keys) ----\n" + \
+        "\n\n".join(extras) + "\n"
+    adjusted = [k for k in missing_keys if k.lower() not in seen]
+    covered  = [k for k in missing_keys if k.lower() in seen]
+    if covered: notes.append(f"{len(covered)} cited key(s) filled from local .bib: {', '.join(sorted(covered))}")
+    return merged, adjusted, notes
+
 
 # ==========================================
 # 📐  WORPT INTEGRATION
@@ -999,6 +1065,21 @@ def handle_request():
                     print(f"  🔍 Case A: bibman: prefix detected, library={bibman_library}")
                     bibman_warn = apply_bibman_bib(
                         cache_dir, file_name, job_name, bibman_library)
+                    # A5 — if a local .bib was ALSO uploaded, merge it as a FALLBACK:
+                    # BibMan wins on duplicate keys, the local .bib fills only the gaps.
+                    if bib_in_payload:
+                        lib_bib  = bibman_library + ".bib"
+                        lib_path = os.path.join(cache_dir, lib_bib)
+                        cited    = get_used_citations_from_aux(cache_dir, file_name)
+                        try:
+                            with open(lib_path, encoding="utf-8") as f: cur = f.read()
+                        except Exception: cur = ""
+                        merged, bibman_warn, a5_notes = merge_local_bib(
+                            cache_dir, lib_bib, cur, cited, bibman_warn)
+                        if merged != cur:
+                            with open(lib_path, "w", encoding="utf-8") as f: f.write(merged)
+                            print(f"  📚  A5: merged local .bib fallback into {lib_bib}")
+                        for nt in a5_notes: print(f"  ℹ️  A5 local .bib: {nt}")
                 elif not bib_in_payload:
                     # Case C — no .bib at all
                     print(f"  🔍 Case C: no .bib in payload, trying BibMan without library name")
