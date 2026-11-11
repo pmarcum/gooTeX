@@ -17,7 +17,7 @@ Wants=network-online.target
 # --- Identity: the service account/home that owns the install ---
 User=bibman
 Group=bibman
-WorkingDirectory=/home/bibman/gootex
+WorkingDirectory=/home/bibman/gootex/cloud   # the server module lives in the repo's cloud/ subfolder
 
 # --- Non-secret environment ---
 Environment="GOOTEX_PORT=8082"
@@ -65,6 +65,7 @@ WantedBy=multi-user.target
 #   [Service]
 #   Environment="GOOTEX_CREDENTIAL=REPLACE_ME_long_random_string"
 #   Environment="BIBMAN_CREDENTIAL=REPLACE_ME_bibman_read_only_EXPORT_CREDENTIAL"
+#   Environment="WORPT_READ_CREDENTIAL=REPLACE_ME_worpt_read_only_credential"
 #   # Optional — only to use the server-side AI route instead of the
 #   # Apps Script side (most installs leave this unset):
 #   # Environment="GEMINI_API_KEY=REPLACE_ME"
