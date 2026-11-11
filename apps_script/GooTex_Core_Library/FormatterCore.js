@@ -13,40 +13,52 @@ function processSpotlightForDoc(id, centerIndex) {
     updateDocumentOutline(body);
     for (let i = start; i < end; i++) {
        const element = body.getChild(i);
-       if (element.getType() === DocumentApp.ElementType.PARAGRAPH || 
+       if (element.getType() === DocumentApp.ElementType.PARAGRAPH ||
            element.getType() === DocumentApp.ElementType.LIST_ITEM) {
-           runStyleRules(element); 
+           runStyleRules(element);
        }
     }
     doc.saveAndClose();
 }
 
 function runStyleRules(container) {
-    styleRegex(container, "\\\\[a-zA-Z]+", "#4a88c7", true, false); 
-    styleRegex(container, "\\\\(begin|end)\\{[^\\}]+\\}", "#C586C0", true, true);
-    styleRegex(container, "([^\\\\]|^)\\$[^$]+\\$", "#6A9955", false, false); 
-    styleRegex(container, "\\\\cite[a-z*]*(\\[[^\\]]*\\])*\\{[^\\}]+\\}", "#CE9178", false, true);
-    styleRegex(container, "\\\\ref\\{[^\\}]+\\}", "#4FC1FF", false, true);
-    styleRegex(container, "\\\\(sub)*section(\\*?)\\{[^\\}]+\\}", "#D16969", true, true);
-    styleRegex(container, "\\\\label\\{[^\\}]+\\}", "#9CDCFE", true, false);
-    styleRegex(container, "\\}", "#000000", false, false); 
-    styleRegex(container, "([^\\\\]|^)%.*", "#b0b0b0", false, true, null, false); 
-    capCommentEnds(container);
-    styleRegex(container, "%![^!].*", "#000000", true, false, "#FCE100", false); 
-    styleRegex(container, "%!!.*", "#C31D03", true, true, "#FCE100", false);
+    styleRegex(container, "\\\\[a-zA-Z]+", "#5e81a8", false, false);
+    styleRegex(container, "\\\\(begin|end)\\{[^\\}]+\\}", "#8a6a92", false, true);
+    styleRegex(container, "([^\\\\]|^)\\$[^$]+\\$", "#5f8a57", false, false);
+    styleRegex(container, "\\\\cite[a-z*]*(\\[[^\\]]*\\])*\\{[^\\}]+\\}", "#a9815f", false, true);
+    styleRegex(container, "\\\\ref\\{[^\\}]+\\}", "#3f8fbf", false, false);
+    styleRegex(container, "\\\\(sub)*section(\\*?)\\{[^\\}]+\\}", "#b06a6a", true, false);
+    styleRegex(container, "\\\\label\\{[^\\}]+\\}", "#6f9bbd", false, false);
+    styleRegex(container, "\\}", "#000000", false, false);
+    // Comment family — each bounded to its own visual line so a % comment on one
+    // Shift+Enter line never spills its color onto the lines below it.
+    styleCommentLine(container, /(^|[^\\])%[^\u000b\n\r]*/g, "#9a9a9a", false, true, null);
+    styleCommentLine(container, /%!(?!!)[^\u000b\n\r]*/g, "#000000", true, false, "#FCE100");
+    styleCommentLine(container, /%!![^\u000b\n\r]*/g, "#C31D03", true, true, "#FCE100");
 }
 
-function capCommentEnds(container) {
-  let found = container.findText("([^\\\\]|^)%.*");
-  while (found) {
-    const end = found.getEndOffsetInclusive();
-    const text = found.getElement().asText();
-    if (end > 0) {
-       text.setForegroundColor(end, end, "#000000");
-       text.setItalic(end, end, false);
-       text.setBold(end, end, false);
+/**
+ * Color a comment-style match from its `%` to the end of its visual line only.
+ * Unlike a greedy ".*" findText, the pattern stops at a line break (\u000b soft
+ * break, or \n / \r), so a comment never bleeds across Shift+Enter lines that
+ * share one Google Docs paragraph.
+ */
+function styleCommentLine(container, re, color, isBold, isItalic, bgColor) {
+  const textElement = container.editAsText();
+  const s = textElement.getText();
+  re.lastIndex = 0;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const lead = m[1] ? m[1].length : 0;   // skip the non-"\" char the base rule captures before %
+    const start = m.index + lead;
+    const end = m.index + m[0].length - 1; // inclusive
+    if (start <= end) {
+      if (color) textElement.setForegroundColor(start, end, color);
+      textElement.setBold(start, end, !!isBold);
+      textElement.setItalic(start, end, !!isItalic);
+      textElement.setBackgroundColor(start, end, bgColor ? bgColor : null);
     }
-    found = container.findText("([^\\\\]|^)%.*", found);
+    if (re.lastIndex <= m.index) re.lastIndex = m.index + 1;
   }
 }
 
@@ -58,9 +70,9 @@ function styleRegex(container, regex, color, isBold, isItalic, bgColor, isStrike
     const textElement = found.getElement().asText();
     const fullText = textElement.getText();
     const firstChar = fullText.charAt(start);
-    if ((regex.includes("\\$") || regex.includes("%")) && 
+    if ((regex.includes("\\$") || regex.includes("%")) &&
         firstChar !== '$' && firstChar !== '%' && firstChar !== '\\') {
-       start++; 
+       start++;
     }
     if (color) {
         const attrs = textElement.getAttributes(start);
@@ -70,7 +82,7 @@ function styleRegex(container, regex, color, isBold, isItalic, bgColor, isStrike
         const isBgMatch = (attrs[DocumentApp.Attribute.BACKGROUND_COLOR] || null) === (bgColor || null);
         if (isColorMatch && isBoldMatch && isItalicMatch && isBgMatch) {
             found = container.findText(regex, found);
-            continue; 
+            continue;
         }
     }
     if (start <= end) {
