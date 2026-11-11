@@ -57,7 +57,7 @@ Once your group's workspace is set up, authors do not need to install any softwa
 
 ### Optional: BibMan Bibliography Integration
 
-<span style="color:green; font-weight:bold;">gooTeX</span> works perfectly well with an ordinary `.bib` file, but it can also pull your bibliography live from **BibMan**, a companion reference-management web service. BibMan keeps your references — with paper-level and passage-level tagging and search — in its own database and can export them as BibTeX on demand.
+<span style="color:green; font-weight:bold;">gooTeX</span> works perfectly well with an ordinary `.bib` file, but it can also pull your bibliography live from [**BibMan**](https://github.com/pmarcum/BibMan), a companion reference-management web service. BibMan keeps your references — with paper-level and passage-level tagging and search — in its own database and can export them as BibTeX on demand.
 
 To use it, an author points the document's bibliography at a named BibMan library with a `bibman:` prefix instead of a local filename:
 ```latex
@@ -77,7 +77,7 @@ This integration is **entirely optional** — gooTeX compiles normally from a st
 
 ### Optional: WorPT Proposal Tables
 
-For **proposals**, <span style="color:green; font-weight:bold;">gooTeX</span> integrates with **WorPT** (Work Plan Tool), a companion app that builds the budget, effort, and schedule tables from a structured work plan and keeps them consistent as the plan changes.
+For **proposals**, <span style="color:green; font-weight:bold;">gooTeX</span> integrates with [**WorPT**](https://github.com/pmarcum/WorPT) (Work Plan Tool), a companion app that builds the budget, effort, and schedule tables from a structured work plan and keeps them consistent as the plan changes.
 
 Turn it on for a document from **GooTeX > 🛠️ Utilities > 📐 Use WorPT in this document** and paste your WorPT work-plan ID. That adds a `% worpt:` marker to the Doc and reveals a **WorPT** tab in the Control Panel, which lists your plan's tables (along with any plan-level warnings). Click a table to drop its block in at your cursor; `\usepackage{worpt}` is added for you.
 
