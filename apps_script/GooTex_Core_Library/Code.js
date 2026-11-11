@@ -264,6 +264,23 @@ function collectSubDocs(mainText, taskName) {
     try {
       var cmd       = match[1];
       var rawPath   = match[2];
+      // Bibliography: a comma-separated list. A 'bibman:' name is fetched from BibMan
+      // server-side; every OTHER name is a LOCAL .bib pulled from the project folder
+      // into the payload (the server merges them, BibMan winning on duplicate keys).
+      if (cmd === 'bibliography' || cmd === 'addbibresource') {
+        if (!projectIndex) { localFolder = DriveApp.getFileById(docId).getParents().next(); projectIndex = buildProjectIndex(localFolder); }
+        rawPath.split(',').forEach(function(tok) {
+          tok = tok.trim();
+          if (!tok || /^bibman:/i.test(tok)) return;          // BibMan library — fetched by the server
+          var base = tok.replace(/\.bib$/i, '').split('/').pop();
+          var ff   = projectIndex[base.toLowerCase()] || projectIndex[base.toLowerCase() + '.bib'];
+          if (ff) {
+            var c = (ff.getMimeType() === MimeType.GOOGLE_DOCS) ? fetchDocContent(ff.getId()) : ff.getBlob().getDataAsString();
+            payload[base + '.bib'] = c;
+          }
+        });
+        continue;
+      }
       var cleanName = rawPath.replace(/\.(tex|sty|bib|bst|cls)$/i, "").trim();
       if (SKIP_LIST.has(cleanName.split('/').pop().toLowerCase())) continue;
       if (!projectIndex) {
@@ -275,13 +292,7 @@ function collectSubDocs(mainText, taskName) {
       if (cmd === 'bibliographystyle') saveExt = ".bst";
       if (cmd === 'documentclass')     saveExt = ".cls";
       let targetName = cleanName.split('/').pop().toLowerCase();
-      let fileFound  = null;
-      if (cmd === 'bibliography' || cmd === 'addbibresource') {
-        fileFound = projectIndex[targetName] || projectIndex[targetName + ".bib"];
-      } else {
-        fileFound = projectIndex[targetName + saveExt];
-        if (!fileFound) fileFound = projectIndex[targetName];
-      }
+      let fileFound  = projectIndex[targetName + saveExt] || projectIndex[targetName];
       if (fileFound) {
         var content = "";
         if (fileFound.getMimeType() === MimeType.GOOGLE_DOCS) {

@@ -326,30 +326,45 @@ BIBMAN_PREFIX = 'bibman:'
 
 def extract_bibman_library(tex_content):
     """
-    Finds \\bibliography{bibman:LibraryName.bib} pattern.
-    Returns library_name string or None if not found.
+    Find \\bibliography{...} and, among its comma-separated names, return the one
+    carrying the bibman: prefix (prefix and optional .bib stripped). Any other names
+    are local .bib files, merged in server-side (see merge_local_bib).
+    Returns the library name, or None when there is no bibman: entry.
+    Examples: '\\bibliography{bibman:Extragalactic.bib}'          -> 'Extragalactic'
+              '\\bibliography{bibman:Extragalactic.bib, test.bib}' -> 'Extragalactic'
     """
-    match = re.search(
-        r'\\bibliography\{' + BIBMAN_PREFIX + r'([^}]+?)(?:\.bib)?\}',
-        tex_content
-    )
-    result = match.group(1).strip() if match else None
-    print(f"  🔍 extract_bibman_library: {'found=' + result if result else 'NOT FOUND — no bibman: prefix in tex'}")
-    return result
+    m = re.search(r'\\bibliography\{([^}]*)\}', tex_content or "")
+    if m:
+        for tok in m.group(1).split(","):
+            tok = tok.strip()
+            if tok.lower().startswith(BIBMAN_PREFIX):
+                name = tok[len(BIBMAN_PREFIX):].strip()
+                if name.lower().endswith(".bib"): name = name[:-4].strip()
+                print(f"  🔍 extract_bibman_library: found={name}")
+                return name
+    print("  🔍 extract_bibman_library: NOT FOUND — no bibman: prefix in \\bibliography{}")
+    return None
 
 def strip_bibman_prefix(tex_content):
     """
-    Rewrites \\bibliography{bibman:LibraryName.bib}
-    to       \\bibliography{LibraryName}
-    so pdflatex sees a normal bibliography command.
+    Rewrite \\bibliography{bibman:Lib[.bib][, local1, ...]} to \\bibliography{Lib} so
+    pdflatex/bibtex read the single merged library .bib. Non-bibman names are dropped
+    from the command on purpose: their entries are merged into the library .bib
+    server-side (merge_local_bib), and leaving them in would make bibtex read the raw
+    local file too and emit duplicate-entry warnings. A \\bibliography{} with no
+    bibman: entry (a plain local bibliography — Case B) is left unchanged.
     """
-    result = re.sub(
-        r'(\\bibliography\{)' + BIBMAN_PREFIX + r'([^}]+?)(?:\.bib)?(\})',
-        r'\1\2\3',
-        tex_content
-    )
+    def _repl(m):
+        for tok in m.group(1).split(","):
+            tok = tok.strip()
+            if tok.lower().startswith(BIBMAN_PREFIX):
+                name = tok[len(BIBMAN_PREFIX):].strip()
+                if name.lower().endswith(".bib"): name = name[:-4].strip()
+                return "\\bibliography{" + name + "}"
+        return m.group(0)
+    result = re.sub(r'\\bibliography\{([^}]*)\}', _repl, tex_content or "")
     if result != tex_content:
-        print(f"  🔍 strip_bibman_prefix: prefix stripped successfully")
+        print("  🔍 strip_bibman_prefix: bibman: prefix stripped (local .bib names folded via merge)")
     return result
 
 def fetch_bib_from_bibman(bibkeys, library=None):
