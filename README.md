@@ -4,11 +4,12 @@
 
 The <span style="color:green; font-weight:bold;">gooTeX</span> template includes an integrated script that provides:
 * **Figure, Table Referencing:** Searchable, clickable sidebars populated with thumbnails of your figures and table/figure captions. Buttons provide reference to the figure or table as well as to the sections hosting them.
-* **.bib File Integration:** A searchable, clickable sidebar populated from your bibliography — either a static `.bib` file in your project folder or, optionally, a live library served by [BibMan](#optional-bibman-bibliography-integration) (see below).
+* **.bib File Integration:** A searchable, clickable sidebar populated from your bibliography — either a static `.bib` file in your project folder or, optionally, a live library served by [BibMan](#optional-bibman-bibliography-integration) (see below). Filter the list by author (`a:smith`), year (`y:2018-2022`), title (`t:`), journal (`j:`), or tag (`tag:`, for BibMan-tagged references), or just type a word to search across everything.
 * **Live PDF Viewer:** A separate browser tab for viewing the rendered manuscript and inspection logs.
 * **Outline Markers:** Recognizes certain LaTeX commenting characters, automatically highlighting them to grab colleagues' attention or marking them in the document's outline for quick reference.
 * **LaTeX Errors:** Compilation errors/warnings are presented in a sidebar. Clicking an error navigates to the relevant location in the document and briefly highlights the paragraph in the editor. A button launches a targeted Gemini AI assistant — including a follow-up chat — for help resolving the error.
 * **LaTeX Linting:** Basic syntax checking within the Doc.
+* **Image Compression:** Oversized figures are optimized automatically as the Doc syncs, and on demand via **GooTeX > 🛠️ Utilities > Compress Image** — keeping compiles fast and the PDF lean.
 
 Behind the scenes, <span style="color:green; font-weight:bold;">gooTeX</span> compiles your manuscript on a persistent server running a standard LaTeX toolchain — hosted on whatever platform best suits your group. (Standing up that server for your own group is covered in **[DEPLOY.md](DEPLOY.md)**.)
 
@@ -64,4 +65,22 @@ To use it, an author points the document's bibliography at a named BibMan librar
 ```
 When BibMan runs on the same host as the gooTeX compile server, the two connect over a local, authenticated loopback request: during compilation gooTeX fetches that named library, generates the `.bib` on the fly (named after the library), and uses it directly — so your citations always reflect the latest state of your BibMan library, with no hand-maintained `.bib` file to keep in sync.
 
+**Combining BibMan with a local `.bib`.** You can list a local `.bib` *alongside* the BibMan library, comma-separated, for one-off references that aren't in BibMan yet (handy when an external collaborator just wants to drop in a few citations):
+```latex
+\bibliography{bibman:Extragalactic.bib, extras.bib}
+```
+gooTeX merges the two, and **BibMan always wins** on any duplicate citation key — the local `.bib` only fills in keys BibMan doesn't supply.
+
 This integration is **entirely optional** — gooTeX compiles normally from a static `.bib` file when BibMan is not present. BibMan is a separate project with its own setup and documentation; refer to it to deploy the service and to configure the shared credential that authorizes gooTeX to read from it.
+
+---
+
+### Optional: WorPT Proposal Tables
+
+For **proposals**, <span style="color:green; font-weight:bold;">gooTeX</span> integrates with **WorPT** (Work Plan Tool), a companion app that builds the budget, effort, and schedule tables from a structured work plan and keeps them consistent as the plan changes.
+
+Turn it on for a document from **GooTeX > 🛠️ Utilities > 📐 Use WorPT in this document** and paste your WorPT work-plan ID. That adds a `% worpt:` marker to the Doc and reveals a **WorPT** tab in the Control Panel, which lists your plan's tables (along with any plan-level warnings). Click a table to drop its block in at your cursor; `\usepackage{worpt}` is added for you.
+
+The tables are **pulled fresh from WorPT at every compile** — your Doc holds only lightweight placeholders, so a change to the work plan in WorPT appears in the next compiled PDF with nothing to re-insert or sync by hand.
+
+Like BibMan, this integration is **optional** and connects over a local, authenticated loopback when WorPT runs on the same host as the gooTeX compile server. WorPT is a separate project with its own setup and documentation.
