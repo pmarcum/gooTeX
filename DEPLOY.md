@@ -39,7 +39,7 @@ gooTeX has two halves, and you install both:
 
 Key consequence: the **compile server never touches Google Drive.** The Apps Script sends the document and images to the server in the request and writes the returned PDF back to Drive itself. That means your server needs *no* service account, *no* Drive mount, and *no* Google OAuth — it only needs a LaTeX toolchain and a couple of shared secrets.
 
-Optionally, gooTeX integrates with **BibMan** (a companion reference manager) for live bibliographies. BibMan is a **separate project with its own deployment**; this guide covers only the gooTeX hooks into it.
+Optionally, gooTeX integrates with two companion services: **BibMan** (a reference manager, for live bibliographies) and **WorPT** (a proposal Work Plan Tool, for budget, effort, and schedule tables). Each is a **separate project with its own deployment**; this guide covers only the gooTeX hooks into them. Both are reached the same way — a local, authenticated loopback request on the same host, with gooTeX holding a **read-only** credential for each (§3.4) — so gooTeX still compiles normally when either is absent.
 
 ---
 
@@ -77,16 +77,21 @@ Copy the example unit and its secret drop-in into place:
 sudo cp cloud/gootex.service.example /etc/systemd/system/gootex.service
 sudo systemctl edit gootex        # opens the drop-in override editor
 ```
+Before starting, adjust the unit to your install: set `User`/`Group` to the account that owns the clone, point `WorkingDirectory` at the clone's `cloud/` subfolder (where `gootex_e2micro_server.py` lives — Gunicorn imports `gootex_e2micro_server:app` from there), and point the venv path in `ExecStart` at your `venv/bin/gunicorn`.
+
 In the override, set your secrets (these live **only** here, never in a committed file):
 ```ini
 [Service]
 Environment="GOOTEX_CREDENTIAL=<a long random string you generate>"
 Environment="BIBMAN_CREDENTIAL=<only if you run BibMan; use BibMan's read-only EXPORT_CREDENTIAL, not its master key>"
+Environment="WORPT_READ_CREDENTIAL=<only if you run WorPT; WorPT's read-only credential>"
 # Optional — lights up the server-side AI route (see §5). Most installs leave this unset
 # and let the Apps Script side handle AI instead:
 # Environment="GEMINI_API_KEY=<your Gemini key>"
 ```
 Generate `GOOTEX_CREDENTIAL` with e.g. `python3 -c "import secrets; print(secrets.token_hex(16))"`. **Write it down — you must paste the identical value into the Google-half `Config.gs` (§4.3).**
+
+`WORPT_READ_CREDENTIAL` is **server-only** — WorPT is contacted entirely from the server side, so (unlike `BIBMAN_CREDENTIAL`) it has no entry in the Google-half `Config.gs`. If BibMan or WorPT listens on a non-default loopback address, also set `BIBMAN_URL` / `WORPT_URL` here; the defaults (`http://localhost:8081/api/export/bib` and `http://127.0.0.1:8083`) match a standard same-host install.
 
 ### 3.5 Start it
 ```bash
@@ -123,8 +128,15 @@ The server keeps a per-document cache under `~/gootex_cache/` that grows over ti
 ```bash
 crontab -e
 # add:
-0 10 1 * * /home/bibman/gootex/venv/bin/python3 /home/bibman/gootex/gootex_cache_cleanup.py >> /home/bibman/gootex_cache_cleanup.log 2>&1
+0 10 1 * * /home/bibman/gootex/venv/bin/python3 /home/bibman/gootex/cloud/gootex_cache_cleanup.py >> /home/bibman/gootex_cache_cleanup.log 2>&1
 ```
+
+### 3.8 Back up the VM (and a note on cost)
+gooTeX itself is **stateless** — the manuscripts live in Google Docs/Drive, not on the server — so a lost VM costs you only the install, not anyone's writing. Still, a periodic **disk snapshot** spares you from rebuilding the LaTeX toolchain and config by hand.
+
+On Google Cloud, attach a **snapshot schedule** to the VM's boot disk (Console → Compute Engine → *Snapshots → Snapshot schedules*, or `gcloud compute resource-policies create snapshot-schedule`), e.g. weekly with a short retention, and restore by creating a new disk from the latest snapshot. If you also run BibMan and WorPT on the same VM, one snapshot of the shared disk backs up all three.
+
+**Cost, roughly:** an `e2-micro` in an eligible US region can fall under Google Cloud's Free Tier (one instance, subject to Google's current terms); beyond that it runs a low single-digit dollars per month. Snapshots bill only for the *changed* data they store — on the order of a few cents per GB-month — so a small boot disk snapshotted weekly adds very little. These figures move over time, so confirm the current **[Compute Engine pricing](https://cloud.google.com/compute/all-pricing)** and **[disk & snapshot pricing](https://cloud.google.com/compute/disks-image-pricing)** for your region before relying on them.
 
 ---
 
@@ -208,6 +220,7 @@ Your filled-in copy is now **your group's template**. Open the Control Panel in 
 2. Confirm a PDF appears in the project folder's `Compiled/` subfolder.
 3. Introduce a deliberate LaTeX error and confirm it appears in the Log tab; click the AI assistant to confirm the key works.
 4. (If using BibMan) add `\bibliography{bibman:<LibraryName>.bib}` and confirm citations resolve.
+5. (If using WorPT) turn it on via **🛠️ Utilities → 📐 Use WorPT in this document**, paste a work-plan ID, insert a table from the **WorPT** tab, and confirm it compiles into the PDF.
 
 ---
 
