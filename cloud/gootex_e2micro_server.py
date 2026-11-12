@@ -201,7 +201,7 @@ def run_linter(tex_content):
         cmd = ["chktex", "-q", "-v0", "-nall", "-w1", "-w15", "-w16", "-w17",
                "-f", "%l:%d:%m\n", f.name]
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True)
+            res = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
             formatted = []
             for line in res.stdout.split('\n'):
                 p = line.split(':')
@@ -1055,7 +1055,7 @@ def handle_request():
             if task in ["draft", "wordcount", "zip"]: cmd.append("-draftmode")
             cmd.append(file_name)
 
-            sub = subprocess.run(cmd, cwd=cache_dir, capture_output=True, text=True, env=env)
+            sub = subprocess.run(cmd, cwd=cache_dir, capture_output=True, text=True, errors="replace", env=env)
 
             # ----------------------------------------------------------
             # BIBTEX / BIBMAN PASS (compile only)
@@ -1106,14 +1106,14 @@ def handle_request():
                 # Log bibtex run
                 print(f"  🔍 Running bibtex on {job_name}...")
                 bibtex_result = subprocess.run(["bibtex", job_name],
-                               cwd=cache_dir, capture_output=True, text=True, env=env)
+                               cwd=cache_dir, capture_output=True, text=True, errors="replace", env=env)
                 print(f"  🔍 bibtex returncode: {bibtex_result.returncode}")
                 if bibtex_result.stdout: print(f"  🔍 bibtex stdout: {bibtex_result.stdout[:300]}")
                 if bibtex_result.stderr: print(f"  🔍 bibtex stderr: {bibtex_result.stderr[:200]}")
 
                 subprocess.run(cmd, cwd=cache_dir, capture_output=True, env=env)
                 sub = subprocess.run(cmd, cwd=cache_dir,
-                                     capture_output=True, text=True, env=env)
+                                     capture_output=True, text=True, errors="replace", env=env)
                 print(f"  🔍 final pdflatex returncode: {sub.returncode}")
 
             lint_log, wc = future_lint.result(), future_wc.result()
