@@ -208,8 +208,12 @@ function taskShowHelp() {
   DocumentApp.getUi().showModelessDialog(html, 'gooTeX Documentation');
 }
 
+/** 🧹 Clean rebuild — clear this document's cached aux files, then compile fresh.
+ *  Called from the sidebar 🧹 button via dispatch('taskCleanRebuild'). */
+function taskCleanRebuild() { return taskCompile({ clean_aux: true }); }
+
 /** 🚀 v1.0 MASTER COMPILE */
-function taskCompile() {
+function taskCompile(opts) {
   const lock = LockService.getDocumentLock();
   try { lock.waitLock(60000); } catch (e) {
     return { status: "error", log: "⚠️ System Busy." };
@@ -218,7 +222,7 @@ function taskCompile() {
     const doc = DocumentApp.getActiveDocument();
     if (!_CONFIG.GOOTEX_SERVER_URL) return { status: "error", log: "❌ SERVER URL MISSING — check Config.gs" };
     let text = getCleanText(doc.getId());
-    const result = executeTask('compile', doc.getName(), text, doc);
+    const result = executeTask('compile', doc.getName(), text, doc, opts);
     if (result && result.status === 'success') {
       let user = Session.getActiveUser().getEmail().split('@')[0];
       const time = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "E MM/dd/yyyy hh:mma");
@@ -380,7 +384,7 @@ function collectSubDocs(mainText, taskName) {
   return payload;
 }
 
-function executeTask(taskName, targetName, content, doc) {
+function executeTask(taskName, targetName, content, doc, opts) {
   // - Adds X-GooTeX-Credential header
   // - Adds doc_id and lineage (see LINEAGE above) to all payloads
   // - Two-step compile: cache check then compile with needed images
@@ -429,6 +433,7 @@ function executeTask(taskName, targetName, content, doc) {
       "main_text": fullText,
       "main_name": targetName || "main.tex",
       "full_path": calculatedPath,
+      "clean_aux": !!(opts && opts.clean_aux),
       "sub_docs":  subDocs
     };
     try {

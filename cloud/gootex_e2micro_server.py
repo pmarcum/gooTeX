@@ -1055,6 +1055,21 @@ def handle_request():
             if task in ["draft", "wordcount", "zip"]: cmd.append("-draftmode")
             cmd.append(file_name)
 
+            # Clean rebuild: when the sidebar's 🧹 button sets clean_aux, wipe this
+            # document's LaTeX intermediates before the first pass so the ToC,
+            # cross-references and bibliography rebuild from scratch. Cached images,
+            # the BibMan .bib and WorPT tables are left in place (re-validated anyway).
+            if task == "compile" and data.get("clean_aux"):
+                _cleaned = []
+                for _ext in (".aux", ".toc", ".out", ".bbl", ".blg", ".fls",
+                             ".log", ".lof", ".lot", ".brf", ".bcf", ".run.xml",
+                             ".synctex.gz"):
+                    _p = os.path.join(cache_dir, job_name + _ext)
+                    if os.path.exists(_p):
+                        try: os.remove(_p); _cleaned.append(os.path.basename(_p))
+                        except Exception: pass
+                print(f"  🧹 clean_aux: removed {len(_cleaned)} cached auxiliary file(s) before compile")
+
             sub = subprocess.run(cmd, cwd=cache_dir, capture_output=True, text=True, errors="replace", env=env)
 
             # ----------------------------------------------------------

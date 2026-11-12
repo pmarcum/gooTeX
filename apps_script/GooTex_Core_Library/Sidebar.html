@@ -163,6 +163,11 @@
         </div>
       </div>
     </button>
+    <button class="action-btn" style="background-color:#8a6d3b; flex: 0 0 28px; justify-content:center;
+        padding:0;" onclick="compilePdf(true)"
+        title="Clean rebuild: clear this document's cached&#10;auxiliary files (ToC, cross-refs, bibliography),&#10;then compile from scratch.&#10;Use if the ToC, refs, or layout look stale.">
+      <span class="btn-label" style="font-size:16px;">🧹</span>
+    </button>
     <button class="action-btn" style="background-color:#6a1b9a; flex: 0 0 20px;
         justify-content:center; padding:0;" onclick="exportZip()"
         title="Bundle everything in zip file&#10;for journal submission package."><span class="btn-label" style="font-size:16px;">📦</span>
@@ -368,14 +373,14 @@
     }
 
     /* === COMPILE PDF (60s Safety) === */
-    function compilePdf() {
+    function compilePdf(clean) {
       if (highlightClearTimer) { clearTimeout(highlightClearTimer); highlightClearTimer = null; }
       google.script.run.dispatch('clearAllErrorHighlights');
       maybePingBibMan();
       if (systemBusy) return;
       setSystemBusy(true);
       isSuccessState = false;
-      updateStatus("Building PDF...");
+      updateStatus(clean ? "Clean rebuild — clearing cache & compiling..." : "Building PDF...");
       setTimeout(function() {
           if (systemBusy) { setSystemBusy(false); updateStatus("Status Delayed. Check Drive."); }
       }, 60000);
@@ -399,7 +404,7 @@
           } else {
             updateStatus("Error: " + err.message);
           }
-        }).dispatch('taskCompile');
+        }).dispatch(clean ? 'taskCleanRebuild' : 'taskCompile');
       }
       attemptCompile(3);  // Try up to 3 times, 15 seconds apart
     }
