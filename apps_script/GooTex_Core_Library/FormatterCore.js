@@ -22,6 +22,18 @@ function processSpotlightForDoc(id, centerIndex) {
 }
 
 function runStyleRules(container) {
+    // Reset the paragraph to the default (black, upright, non-bold) before applying
+    // syntax colors, so text that is no longer a command or comment — e.g. after
+    // un-commenting a line, or the braces of a command that no rule re-matches —
+    // returns to normal instead of keeping a stale color (such as comment grey).
+    // Background is left untouched so error highlights and %! markers are preserved.
+    const _reset = container.editAsText();
+    const _rlen  = _reset.getText().length;
+    if (_rlen > 0) {
+      _reset.setForegroundColor(0, _rlen - 1, "#000000");
+      _reset.setBold(0, _rlen - 1, false);
+      _reset.setItalic(0, _rlen - 1, false);
+    }
     styleRegex(container, "\\\\[a-zA-Z]+", "#5e81a8", false, false);
     styleRegex(container, "\\\\(begin|end)\\{[^\\}]+\\}", "#8a6a92", false, true);
     styleRegex(container, "([^\\\\]|^)\\$[^$]+\\$", "#5f8a57", false, false);
