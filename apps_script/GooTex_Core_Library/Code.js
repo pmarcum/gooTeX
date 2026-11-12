@@ -308,7 +308,7 @@ function collectSubDocs(mainText, taskName) {
         } else {
           content = fileFound.getBlob().getDataAsString();
         }
-        var simpleFilename = cleanName.split('/').pop() + (cmd.includes('bib') ? ".bib" : saveExt);
+        var simpleFilename = cleanName.split('/').pop() + saveExt;
         payload[simpleFilename] = content;
       }
     } catch(e) {}
