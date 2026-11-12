@@ -1235,9 +1235,25 @@ def handle_request():
                         bib_b64 = base64.b64encode(f.read()).decode('utf-8')
                     print(f"  📚  Bib encoded: {os.path.basename(bib_path)} ({os.path.getsize(bib_path):,} bytes)")
                     break
-            # Encode all .tex files (skip wc.tex — internal word count temp file)
-            for fname in sorted(os.listdir(cache_dir)):
-                if not fname.endswith('.tex'): continue
+            # Encode only the .tex files THIS document actually used. We read the
+            # .fls (what pdflatex read this compile, -recorder is always on) the same
+            # way the zip task does, so leftover, renamed, or draft .tex files sitting
+            # in the cache are not shipped to Drive. The main .tex is always included;
+            # wc*.tex (internal word-count temp) is always skipped.
+            used_tex = set()
+            fls_path = os.path.join(cache_dir, job_name + ".fls")
+            if os.path.exists(fls_path):
+                with open(fls_path, 'r', errors='ignore') as f:
+                    for line in f:
+                        if not line.startswith("INPUT "): continue
+                        p = line.split("INPUT ", 1)[1].strip()
+                        if not os.path.isabs(p): p = os.path.join(cache_dir, p)
+                        p = os.path.normpath(p)
+                        if p.startswith(cache_dir) and p.endswith(".tex") and os.path.exists(p):
+                            used_tex.add(os.path.basename(p))
+            main_tex = job_name + ".tex"
+            if os.path.exists(os.path.join(cache_dir, main_tex)): used_tex.add(main_tex)
+            for fname in sorted(used_tex):
                 if fname.startswith('wc'): continue
                 tex_path = os.path.join(cache_dir, fname)
                 try:
