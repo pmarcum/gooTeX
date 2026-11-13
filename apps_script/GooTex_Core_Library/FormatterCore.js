@@ -21,18 +21,49 @@ function processSpotlightForDoc(id, centerIndex) {
     doc.saveAndClose();
 }
 
+// Colors the formatter itself applies. Any OTHER foreground color is treated as a
+// manual mark and left untouched by the reset. All are deliberately off the standard
+// Google Docs palette, so a color picked from that menu never collides with one.
+var FORMATTER_FG = {"#5e81a8":1,"#8a6a92":1,"#5f8a57":1,"#a9815f":1,"#3f8fbf":1,
+                    "#b06a6a":1,"#6f9bbd":1,"#9a9a9a":1,"#c31d03":1,"#000000":1,
+                    "#aaaaaa":1,"#888888":1,"#2e7d32":1};
+var FORMATTER_HL = "#fce100";  // the %! / %!! highlight; off-standard so manual yellow survives
+
+// Reset only the formatter's own colors, preserving manual font colors and highlights.
+// Foreground: black-out formatter colors (and unset/black runs); keep manual colors.
+// Background: clear only the %! highlight (re-applied below for lines still %!); keep
+// manual highlights and the error highlight, which the error system owns.
+function _resetFormatterColors(t, len) {
+  var rs = 0, prev = t.getForegroundColor(0);
+  for (var i = 1; i <= len; i++) {
+    var cur = (i < len) ? t.getForegroundColor(i) : null;
+    if (i === len || cur !== prev) {
+      if (prev === null || FORMATTER_FG[String(prev).toLowerCase()]) t.setForegroundColor(rs, i - 1, "#000000");
+      rs = i; prev = cur;
+    }
+  }
+  rs = 0; prev = t.getBackgroundColor(0);
+  for (var j = 1; j <= len; j++) {
+    var curb = (j < len) ? t.getBackgroundColor(j) : null;
+    if (j === len || curb !== prev) {
+      if (prev !== null && String(prev).toLowerCase() === FORMATTER_HL) t.setBackgroundColor(rs, j - 1, null);
+      rs = j; prev = curb;
+    }
+  }
+}
+
 function runStyleRules(container) {
-    // Reset the paragraph to the default (black, upright, non-bold) before applying
-    // syntax colors, so text that is no longer a command or comment — e.g. after
-    // un-commenting a line, or the braces of a command that no rule re-matches —
-    // returns to normal instead of keeping a stale color (such as comment grey).
-    // Background is left untouched so error highlights and %! markers are preserved.
+    // Reset only the formatter's own styling before re-applying syntax colors, so a
+    // stale formatter color clears (e.g. after un-commenting a line) while any manual
+    // font color or highlight the author added is preserved. Bold/italic are always
+    // cleared — there's no way to tell a manual bold from a formatter bold, and the
+    // author prefers clean text. See _resetFormatterColors.
     const _reset = container.editAsText();
     const _rlen  = _reset.getText().length;
     if (_rlen > 0) {
-      _reset.setForegroundColor(0, _rlen - 1, "#000000");
       _reset.setBold(0, _rlen - 1, false);
       _reset.setItalic(0, _rlen - 1, false);
+      _resetFormatterColors(_reset, _rlen);
     }
     styleRegex(container, "\\\\[a-zA-Z]+", "#5e81a8", false, false);
     styleRegex(container, "\\\\(begin|end)\\{[^\\}]+\\}", "#8a6a92", false, true);
@@ -71,7 +102,7 @@ function styleCommentLine(container, re, color, isBold, isItalic, bgColor) {
       if (color) textElement.setForegroundColor(start, end, color);
       textElement.setBold(start, end, !!isBold);
       textElement.setItalic(start, end, !!isItalic);
-      textElement.setBackgroundColor(start, end, bgColor ? bgColor : null);
+      if (bgColor) textElement.setBackgroundColor(start, end, bgColor);
     }
     if (re.lastIndex <= m.index) re.lastIndex = m.index + 1;
   }
