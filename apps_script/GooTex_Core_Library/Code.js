@@ -879,7 +879,7 @@ function parseLocalAssets(text) {
   const tables = [];
   const sectionsList = [];
   const sections = [];
-  const secRegex = /\\(section|subsection|subsubsection)\*?\s*(?:\[.*?\])?\s*\{(.*?)\}/g;
+  const secRegex = /\\(section|subsection|subsubsection|proposalComponent|proposalNestedComponent)\*?\s*(?:\[.*?\])*\s*\{(.*?)\}/g;
   let sMatch;
   while ((sMatch = secRegex.exec(text)) !== null) {
       let startIdx = sMatch.index;
@@ -891,7 +891,7 @@ function parseLocalAssets(text) {
       // labels from inside figures/tables that follow the section.
       let lookaheadText = text.substring(startIdx + sMatch[0].length,
                                          Math.min(text.length, startIdx + 1500));
-      const stopMatch = lookaheadText.search(/\\(?:section|subsection|subsubsection|begin)\s*[\*\{]/);
+      const stopMatch = lookaheadText.search(/\\(?:section|subsection|subsubsection|proposalComponent|proposalNestedComponent|begin)\s*[\*\[\{]/);
       if (stopMatch > -1) {
           lookaheadText = lookaheadText.substring(0, stopMatch);
       }
@@ -909,6 +909,18 @@ function parseLocalAssets(text) {
           label: lblMatch ? lblMatch[1] : "",
           type:  sMatch[1]
       });
+  }
+  // \proposalReferences acts like \section — list it in the Sects tab as "References".
+  const refRegex = /\\proposalReferences(?:\[.*?\])*/g;
+  let rMatch;
+  while ((rMatch = refRegex.exec(text)) !== null) {
+      const startIdx = rMatch.index;
+      let lookaheadText = text.substring(startIdx + rMatch[0].length, Math.min(text.length, startIdx + 1500));
+      const stopMatch = lookaheadText.search(/\\(?:section|subsection|subsubsection|proposalComponent|proposalNestedComponent|begin)\s*[\*\[\{]/);
+      if (stopMatch > -1) lookaheadText = lookaheadText.substring(0, stopMatch);
+      const lblMatch = lookaheadText.match(/\\label\{([^}]+)\}/);
+      sections.push({ start: startIdx, level: 1, label: lblMatch ? lblMatch[1] : "" });
+      sectionsList.push({ id: lblMatch ? lblMatch[1] : "sec-" + startIdx, title: "References", level: 1, line: 0, label: lblMatch ? lblMatch[1] : "", type: "proposalReferences" });
   }
   const getParentSection = (pos) => {
       const preceding = sections.filter(s => s.start < pos);

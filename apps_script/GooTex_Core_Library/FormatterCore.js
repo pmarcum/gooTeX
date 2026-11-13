@@ -40,6 +40,9 @@ function runStyleRules(container) {
     styleRegex(container, "\\\\cite[a-z*]*(\\[[^\\]]*\\])*\\{[^\\}]+\\}", "#a9815f", false, true);
     styleRegex(container, "\\\\ref\\{[^\\}]+\\}", "#3f8fbf", false, false);
     styleRegex(container, "\\\\(sub)*section(\\*?)\\{[^\\}]+\\}", "#b06a6a", true, false);
+    // Custom proposal headings (from proposal.sty) act like \section — color them the same.
+    styleRegex(container, "\\\\proposal(Nested)?Component(\\[[^\\]]*\\])*\\{[^\\}]+\\}", "#b06a6a", true, false);
+    styleRegex(container, "\\\\proposalReferences(\\[[^\\]]*\\])*", "#b06a6a", true, false);
     styleRegex(container, "\\\\label\\{[^\\}]+\\}", "#6f9bbd", false, false);
     styleRegex(container, "\\}", "#000000", false, false);
     // Comment family — each bounded to its own visual line so a % comment on one
@@ -114,7 +117,9 @@ function updateDocumentOutline(body) {
   paragraphs.forEach(p => {
     const text = p.getText();
     let target = DocumentApp.ParagraphHeading.NORMAL;
-    if (text.includes('\\section{')) target = DocumentApp.ParagraphHeading.HEADING1;
+    if (text.includes('\\section{') || text.includes('\\proposalComponent') ||
+        text.includes('\\proposalNestedComponent') || text.includes('\\proposalReferences'))
+       target = DocumentApp.ParagraphHeading.HEADING1;
     else if (text.includes('\\subsection{')) target = DocumentApp.ParagraphHeading.HEADING2;
     else if (text.includes('\\subsubsection{')) target = DocumentApp.ParagraphHeading.HEADING3;
     else if (text.includes('\\paragraph{')) target = DocumentApp.ParagraphHeading.HEADING4;
