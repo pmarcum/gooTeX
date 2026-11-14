@@ -202,16 +202,25 @@
         </div>
         <div id="custom-list"></div>
         <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
-        <div style="font-size:11px; color:#888; margin: 0 0 6px 0; font-weight:700; letter-spacing:1px;">GRAPHICS</div>
-        <button class="macro-btn" onclick="insertMacro('fig')"><b>Figure:</b> Standard Single</button>
-        <button class="macro-btn" onclick="insertMacro('subfig')"><b>Figure:</b> 2-Panel Subfigure</button>
+        <div style="font-size:11px; color:#888; margin: 0 0 6px 0; font-weight:700; letter-spacing:1px;">STRUCTURE</div>
+        <button class="macro-btn" onclick="insertMacro('comp')"><b>Component</b> — numbered 1, 2, 3…</button>
+        <button class="macro-btn" onclick="insertMacro('ncomp')"><b>Nested Component</b> — numbered 3.1, 3.2…</button>
+        <button class="macro-btn" onclick="insertMacro('refs')"><b>References</b> (before \bibliography)</button>
+        <div style="font-size:11px; color:#888; margin: 12px 0 6px 0; font-weight:700; letter-spacing:1px;">FORMATTING</div>
+        <button class="macro-btn" onclick="insertMacro('bold')"><b>Bold</b></button>
+        <button class="macro-btn" onclick="insertMacro('italic')"><b>Italic</b></button>
+        <button class="macro-btn" onclick="insertMacro('underline')"><b>Underline</b></button>
+        <button class="macro-btn" onclick="insertMacro('callout')"><b>Callout</b> box</button>
+        <button class="macro-btn" onclick="insertMacro('todo')"><b>TODO</b> note</button>
+        <div style="font-size:11px; color:#888; margin: 12px 0 6px 0; font-weight:700; letter-spacing:1px;">GRAPHICS</div>
+        <button class="macro-btn" onclick="insertMacro('fig')"><b>Figure:</b> Single</button>
+        <button class="macro-btn" onclick="insertMacro('fig3')"><b>Figure:</b> 3-Panel</button>
         <div style="font-size:11px; color:#888; margin: 12px 0 6px 0; font-weight:700; letter-spacing:1px;">TABLES</div>
         <button class="macro-btn" onclick="insertMacro('tab')"><b>Table:</b> Standard</button>
         <button class="macro-btn" onclick="insertMacro('deluxe')"><b>Table:</b> AASTeX Deluxetable</button>
-        <div style="font-size:11px; color:#888; margin: 12px 0 6px 0; font-weight:700; letter-spacing:1px;">MATH & TEXT</div>
+        <div style="font-size:11px; color:#888; margin: 12px 0 6px 0; font-weight:700; letter-spacing:1px;">MATH & LISTS</div>
         <button class="macro-btn" onclick="insertMacro('eq')"><b>Math:</b> Equation Environment</button>
         <button class="macro-btn" onclick="insertMacro('list')"><b>Text:</b> Itemize List</button>
-        <button class="macro-btn" onclick="insertMacro('box')"><b>Style:</b> Colored Box</button>
         <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
         <div class="local-info">
           <b>💻 Local Compilation on Your Own Laptop (Optional)</b><br>
@@ -800,13 +809,20 @@
       setSystemBusy(true);
       let snippet = "";
       switch(type) {
-        case 'fig': snippet = "\\begin{figure}[ht]\n   \\centering\n   \\includegraphics[width\\columnwidth]{file}\n   \\caption{...}\n   \\label{fig:}\n\\end{figure}"; break;
-        case 'subfig': snippet = "\\begin{figure}[ht]\n  \\centering\n  \\begin{subfigure}{0.49\\textwidth}\n      \\centering\n      \\includegraphics[width=\\linewidth]{file1}\n      \\caption{Left}\n      \\label{fig:left}\n  \\end{subfigure}\n  \\hfill\n  \\begin{subfigure}{0.49\\textwidth}\n      \\centering\n      \\includegraphics[width=\\linewidth]{file2}\n      \\caption{Right}\n      \\label{fig:right}\n  \\end{subfigure}\n  \\caption{...}\n  \\label{fig:}\n\\end{figure}"; break;
+        case 'comp': snippet = "\\proposalComponent{Title}"; break;
+        case 'ncomp': snippet = "\\proposalNestedComponent{Title}"; break;
+        case 'refs': snippet = "\\proposalReferences"; break;
+        case 'bold': snippet = "\\textbf{text}"; break;
+        case 'italic': snippet = "\\textit{text}"; break;
+        case 'underline': snippet = "\\underline{text}"; break;
+        case 'todo': snippet = "\\todo{note}"; break;
+        case 'callout': snippet = "\\begin{callout}{}{blue}{Title}\n  Text here.\n\\end{callout}"; break;
+        case 'fig': snippet = "\\begin{figure}[ht]\n   \\centering\n   \\includegraphics[width=0.6\\textwidth]{file.png}\n   \\caption{...}\n   \\label{fig:}\n\\end{figure}"; break;
+        case 'fig3': snippet = "\\begin{figure}[ht]\n  \\centering\n  \\includegraphics[width=0.32\\textwidth]{fig1.png}%\n  \\includegraphics[width=0.32\\textwidth]{fig2.png}%\n  \\includegraphics[width=0.32\\textwidth]{fig3.png}\n  \\caption{Here is the caption.}\n  \\label{fig:theFigureLabel}\n\\end{figure}"; break;
         case 'tab': snippet = "\\begin{table}[ht]\n  \\centering\n  \\begin{tabular}{cc}\n      \\hline\\hline\n      A & B \\\\\n      \\hline\n      1 & 2 \\\\\n      \\hline\n  \\end{tabular}\n  \\caption{...}\n  \\label{tab:}\n\\end{table}"; break;
         case 'deluxe': snippet = "\\begin{deluxetable}{cc}\n  \\tablecaption{... \\label{tab:}}\n  \\tablewidth{0pt}\n  \\tablehead{\n     \\colhead{Header 1} & \\colhead{Header 2}\n  }\n  \\startdata\n     Data & Data \\\\\n  \\enddata\n  \\tablecomments{...}\n\\end{deluxetable}"; break;
         case 'eq': snippet = "\\begin{equation}\n   \\label{eq:}\n   E = mc^2\n\\end{equation}"; break;
         case 'list': snippet = "\\begin{itemize}\n   \\item \n   \\item \n\\end{itemize}"; break;
-        case 'box': snippet = "\\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black, title=Key, arc=2mm]\n  Summarize context here.\n\\end{tcolorbox}"; break;
       }
       sendToDoc(snippet);
     }
