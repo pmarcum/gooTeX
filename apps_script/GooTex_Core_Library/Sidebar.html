@@ -734,6 +734,16 @@
       });
     }
 
+    function sendToDoc(text) {
+      google.script.run.withSuccessHandler(_insertResult).dispatch('taskInsertTextAtCursor', text);
+    }
+    function _insertResult(status) {
+      setSystemBusy(false);
+      if (status === 'NO_CURSOR') {
+        alert("Click in your document where you want this inserted, then click the button again.");
+      }
+    }
+
     function insertRef(key, type) {
       maybePingBibMan();
       // ⚡ SNAP-ACTION: Apply the "Used" style immediately (No waiting)
@@ -781,7 +791,7 @@
       const cmd = type === 'cite' ? key :
                   type === 'fig' ? "Fig.~\\ref{" + key + "}" :
                   type === 'tab' ? "Table~\\ref{" + key + "}" : "\\S\\ref{" + key + "}";
-      google.script.run.dispatch('taskInsertTextAtCursor', cmd);
+      sendToDoc(cmd);
     }
 
     function insertMacro(type) {
@@ -798,7 +808,7 @@
         case 'list': snippet = "\\begin{itemize}\n   \\item \n   \\item \n\\end{itemize}"; break;
         case 'box': snippet = "\\begin{tcolorbox}[colback=blue!5!white, colframe=blue!75!black, title=Key, arc=2mm]\n  Summarize context here.\n\\end{tcolorbox}"; break;
       }
-      google.script.run.withSuccessHandler(() => setSystemBusy(false)).dispatch('taskInsertTextAtCursor', snippet);
+      sendToDoc(snippet);
     }
 
     /* === CUSTOM SHORTCUTS MANAGER === */
@@ -826,7 +836,7 @@
         btn.innerHTML = "<b>" + item.label + "</b>";
         btn.onclick = function() {
             // Send the saved code to the Doc
-            google.script.run.withSuccessHandler(() => setSystemBusy(false)).dispatch('taskInsertTextAtCursor', item.code);
+            sendToDoc(item.code);
         };
         // The Delete X
         var del = document.createElement('button');

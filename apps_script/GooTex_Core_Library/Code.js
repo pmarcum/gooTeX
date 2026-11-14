@@ -1262,17 +1262,26 @@ function taskInsertTextAtCursor(text) {
   try {
     const doc = DocumentApp.getActiveDocument();
     const cursor = doc.getCursor();
-    if (cursor) {
-      // 🚀 DIRECT PASS: Insert and move on.
-      const element = cursor.insertText(text);
-    } else {
-      // Fallback: If no cursor, just append to the end
-      doc.getBody().appendParagraph(text);
+    if (!cursor) {
+      // No caret (text is selected, or focus left the body). Don't silently dump
+      // the text at the end of the document — tell the sidebar to ask the user to
+      // click where they want it first.
+      return "NO_CURSOR";
     }
-    // Critical: Do NOT call doc.saveAndClose() here.
-    // Keeping the session "Warm" reduces the lag for the NEXT button click.
+    const off = cursor.getOffset();
+    const element = cursor.insertText(text);
+    if (element) {
+      // Put the caret just after the inserted text, so Docs scrolls to it and the
+      // next insert continues from here. Fall back to the start of the insert if the
+      // offset doesn't line up (e.g. line breaks in a snippet).
+      try { doc.setCursor(doc.newPosition(element, off + text.length)); }
+      catch (e2) { try { doc.setCursor(doc.newPosition(element, off)); } catch (e3) {} }
+    }
+    // Do NOT saveAndClose here — keeping the session warm reduces lag on the next click.
+    return "OK";
   } catch (e) {
-    console.error("Fast Insert Error: " + e.toString());
+    console.error("Insert Error: " + e.toString());
+    return "ERR";
   }
 }
 
