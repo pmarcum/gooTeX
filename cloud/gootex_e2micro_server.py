@@ -812,6 +812,37 @@ def handle_request():
                 return jsonify({'status': 'error', 'answer': f"AI Error: {str(e)}"}), 200
 
         # ----------------------------------------------------------
+        # FIX LATEX — return the CORRECTED LaTeX for a snippet (for the sidebar's
+        # Accept/Reject), not a diagnosis. The Gemini key stays on the VM.
+        # ----------------------------------------------------------
+        if task == 'fix_latex':
+            if not ai_enabled:
+                return jsonify({'status': 'error', 'fix': '', 'message': "AI is off: the VM's GEMINI_API_KEY is not set."})
+            snippet = (data.get('latex') or '').strip()
+            if not snippet:
+                return jsonify({'status': 'error', 'fix': '', 'message': "Nothing to fix (no LaTeX was sent)."})
+            error_msg = (data.get('error_msg') or '').strip()
+            err_line  = f"\n\nThe compiler reported this error, so fix it:\n{error_msg}" if error_msg else ""
+            system_gate = ("ACT AS: a LaTeX fixer. Return ONLY the corrected LaTeX for the snippet below. "
+                           "No explanation, no commentary, no markdown code fences. Preserve the author's "
+                           "wording, macros and style; change only what is needed to make it compile and be correct.")
+            try:
+                response = ai_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=f"{system_gate}{err_line}\n\nLATEX:\n{snippet}"
+                )
+                fixed = (response.text or '').strip()
+                # Strip a ``` or ```latex fence if the model wrapped the code anyway.
+                if fixed.startswith('```'):
+                    lines = fixed.split('\n')
+                    if lines[0].startswith('```'): lines = lines[1:]
+                    if lines and lines[-1].strip() == '```': lines = lines[:-1]
+                    fixed = '\n'.join(lines).strip()
+                return jsonify({'status': 'success', 'fix': fixed})
+            except Exception as e:
+                return jsonify({'status': 'error', 'fix': '', 'message': f"AI Error: {str(e)}"}), 200
+
+        # ----------------------------------------------------------
         # WORPT BLOCKS (Part B) — sidebar proxy to WorPT: returns the plan's
         # table names, paste-in blocks (incl. blocks['worpt'] = the \usepackage
         # line), title and checks. The WorPT read-only key never leaves the VM.
