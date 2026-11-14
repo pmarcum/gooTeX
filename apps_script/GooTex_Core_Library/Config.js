@@ -7,7 +7,7 @@
  */
 
 var GOOTEX_VERSION_URL    = "https://raw.githubusercontent.com/pmarcum/gooTeX/main/version.json";
-var GOOTEX_GEMINI_MODEL   = "gemini-flash-latest";
+var GOOTEX_GEMINI_MODEL   = "gemini-2.5-flash";
 var GOOTEX_MENU_TITLE     = "🦠gǫ̴o͎𝐓𝐞͎𝐗̨";
 var GOOTEX_SIDEBAR_TITLE  = "︶꒷꒦︶gǫ̴o͎-trol Panel︶꒦꒷︶";
 var GOOTEX_MARKER_COLOR   = "#aaaaaa";

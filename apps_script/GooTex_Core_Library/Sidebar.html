@@ -254,7 +254,7 @@
     var systemBusy     = false;
     var geminiApiKey   = "";
     var geminiModel       = "";
-    var geminiModelBackup = "gemini-flash-latest";
+    var geminiModelBackup = "gemini-2.5-flash";
     var isSuccessState = false; // Flag to keep Success button visible
     var aiHistory      = [];   // Conversation history for Gemini follow-up chat
     var highlightClearTimer = null;
@@ -943,7 +943,9 @@
       .then(function(data) {
         btn.innerHTML = originalText;
         btn.disabled = false;
-        var answer = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
+        if (data && data.error) throw new Error("Gemini " + data.error.code + " (" + data.error.status + "): " + data.error.message);
+        var answer = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!answer) throw new Error("No answer from model '" + modelToUse + "'. It may have been retired — update GOOTEX_GEMINI_MODEL in Config.gs.");
         aiHistory.push({ role: "model", parts: [{ text: answer }] });
         renderAiConversation();
         document.getElementById('ai-modal').style.display = 'flex';
@@ -977,7 +979,9 @@
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        var answer = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response received.";
+        if (data && data.error) throw new Error("Gemini " + data.error.code + " (" + data.error.status + "): " + data.error.message);
+        var answer = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!answer) throw new Error("No answer from model '" + modelToUse + "'. It may have been retired — update GOOTEX_GEMINI_MODEL in Config.gs.");
         aiHistory.push({ role: "model", parts: [{ text: answer }] });
         renderAiConversation();
         input.disabled = false;
