@@ -196,6 +196,8 @@
     <div id="content-sects" class="tab-content"><div id="sect-list"></div></div>
     <div id="content-snip" class="tab-content">
       <div style="padding: 10px;">
+        <button class="macro-btn" onclick="fixSelection()" style="background:#5a4a2a; border-color:#8a6d3b;"><b>🔧 Fix selected LaTeX</b> — AI, with Accept/Reject</button>
+        <hr style="border:0; border-top:1px solid #333; margin:12px 0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
           <div style="font-size:11px; color:#4fc1ff; font-weight:700; letter-spacing:1px;">MY SHORTCUTS</div>
           <button onclick="addCustomSnippet()" style="background:none; border:none; color:#4fc1ff; cursor:pointer; font-size:11px; font-weight:bold; padding:4px;">+ ADD</button>
@@ -255,6 +257,25 @@
         <input id="ai-followup-input" type="text" placeholder="Ask a follow-up question..." onkeydown="if(event.key==='Enter')sendFollowup()">
         <button id="ai-followup-send" onclick="sendFollowup()">SEND</button>
       </div>
+    </div>
+  </div>
+
+  <div id="fix-modal" style="display:none; position:fixed; top:8%; left:8%; right:8%; bottom:12%; background:#252526; border:1px solid #8a6d3b;
+        z-index:2000; padding:15px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.6); overflow:hidden; flex-direction:column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:10px; flex-shrink:0;">
+      <span style="font-weight:bold; color:#e0a94f; font-size:12px;">🔧 FIX-IT</span>
+      <button onclick="closeFixModal()" style="background:none; border:none; color:#aaa; cursor:pointer; font-size:20px; line-height:1;">&times;</button>
+    </div>
+    <div id="fix-status" style="font-size:11px; color:#ccc; margin-bottom:8px; flex-shrink:0;"></div>
+    <div style="flex:1; overflow-y:auto; margin-bottom:8px;">
+      <div style="font-size:10px; color:#888; letter-spacing:1px; margin-bottom:3px;">YOUR SELECTION</div>
+      <pre id="fix-original" style="white-space:pre-wrap; word-break:break-word; background:#1e1e1e; color:#9a9a9a; padding:8px; border-radius:4px; font-size:11px; margin:0 0 10px 0;"></pre>
+      <div style="font-size:10px; color:#888; letter-spacing:1px; margin-bottom:3px;">PROPOSED FIX</div>
+      <pre id="fix-result" style="white-space:pre-wrap; word-break:break-word; background:#1e1e1e; color:#4caf50; padding:8px; border-radius:4px; font-size:11px; margin:0;"></pre>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; flex-shrink:0;">
+      <button onclick="closeFixModal()" style="background:#555; color:white; border:none; padding:6px 14px; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold;">REJECT</button>
+      <button id="fix-accept" onclick="acceptFix()" style="display:none; background:#2e7d32; color:white; border:none; padding:6px 14px; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold;">ACCEPT</button>
     </div>
   </div>
 
@@ -826,6 +847,50 @@
       }
       sendToDoc(snippet);
     }
+
+    /* === 🔧 FIX-IT (selection) === */
+    var _fixOriginal = "", _fixText = "";
+    function fixSelection() {
+      if (systemBusy) return;
+      setSystemBusy(true);
+      var modal = document.getElementById('fix-modal');
+      document.getElementById('fix-status').innerText = "Asking the AI…";
+      document.getElementById('fix-original').innerText = "";
+      document.getElementById('fix-result').innerText = "";
+      document.getElementById('fix-accept').style.display = 'none';
+      modal.style.display = 'flex';
+      google.script.run
+        .withSuccessHandler(showFixResult)
+        .withFailureHandler(function(e) { setSystemBusy(false); document.getElementById('fix-status').innerText = "Error: " + e.message; })
+        .dispatch('taskFixSelection');
+    }
+    function showFixResult(r) {
+      setSystemBusy(false);
+      if (!r || r.status === 'no_selection') {
+        document.getElementById('fix-status').innerText = "Select some LaTeX in the document first, then click Fix-it.";
+        return;
+      }
+      if (r.status !== 'success') {
+        document.getElementById('fix-status').innerText = (r && r.message) ? r.message : "The AI fixer didn't return a fix.";
+        return;
+      }
+      _fixOriginal = r.original; _fixText = r.fix;
+      document.getElementById('fix-status').innerText = "Proposed fix — review, then Accept or Reject:";
+      document.getElementById('fix-original').innerText = r.original;
+      document.getElementById('fix-result').innerText = r.fix;
+      document.getElementById('fix-accept').style.display = 'inline-block';
+    }
+    function acceptFix() {
+      setSystemBusy(true);
+      google.script.run.withSuccessHandler(function(res) {
+        setSystemBusy(false);
+        if (res && res.status === 'success') { closeFixModal(); }
+        else if (res && res.status === 'multi') { document.getElementById('fix-status').innerText = "Accept works on a selection within one paragraph — re-select within a single block and run Fix-it again."; }
+        else { document.getElementById('fix-status').innerText = "Your selection changed — re-select the same text and run Fix-it again."; }
+      }).withFailureHandler(function(e) { setSystemBusy(false); document.getElementById('fix-status').innerText = "Error applying fix: " + e.message; })
+        .dispatch('taskApplyFix', _fixOriginal, _fixText);
+    }
+    function closeFixModal() { document.getElementById('fix-modal').style.display = 'none'; }
 
     /* === CUSTOM SHORTCUTS MANAGER === */
     function loadCustomSnippets() {

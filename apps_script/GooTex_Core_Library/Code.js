@@ -1257,6 +1257,59 @@ function taskSelectionCount() {
   doc.saveAndClose();
 }
 
+// 🔧 Mr Fix-it — send the selected LaTeX to the server's fix_latex task (the Gemini
+// key stays on the VM) and return the corrected text for the sidebar's Accept/Reject.
+function taskFixSelection() {
+  if (!_lineageAllowed()) return { status: "error", message: "This document isn't a recognized gooTeX document." };
+  const doc = DocumentApp.getActiveDocument();
+  const selection = doc.getSelection();
+  if (!selection) return { status: "no_selection" };
+  const original = selection.getRangeElements().map(function(e) {
+    if (e.getElement().editAsText) {
+      return e.getElement().asText().getText().substring(e.getStartOffset(), e.getEndOffsetInclusive() + 1);
+    }
+    return "";
+  }).join("\n");
+  if (!original.trim()) return { status: "no_selection" };
+  if (!_CONFIG.GOOTEX_SERVER_URL) return { status: "error", message: "Server URL missing — check Config.gs." };
+  const baseUrl = _CONFIG.GOOTEX_SERVER_URL.endsWith('/') ? _CONFIG.GOOTEX_SERVER_URL : _CONFIG.GOOTEX_SERVER_URL + '/';
+  try {
+    const resp = UrlFetchApp.fetch(baseUrl, {
+      "method": "post",
+      "contentType": "application/json",
+      "payload": JSON.stringify({ task: "fix_latex", latex: original, doc_id: doc.getId(), lineage: _lineage(doc) }),
+      "muteHttpExceptions": true,
+      "headers": { "ngrok-skip-browser-warning": "true", "X-GooTeX-Credential": _CONFIG.GOOTEX_CREDENTIAL || "" }
+    });
+    const body = JSON.parse(resp.getContentText() || "{}");
+    if (body.status === "success") return { status: "success", original: original, fix: (body.fix || "") };
+    return { status: "error", message: body.message || body.log || "The AI fixer returned an error." };
+  } catch (e) {
+    return { status: "error", message: "Could not reach the server: " + e.message };
+  }
+}
+
+// Apply an accepted fix: re-read the selection and replace it ONLY if it still matches
+// what we fixed (guards against the cursor moving between request and Accept). First
+// version handles a selection within one text block cleanly.
+function taskApplyFix(original, fixText) {
+  if (!_lineageAllowed()) return { status: "error" };
+  const doc = DocumentApp.getActiveDocument();
+  const selection = doc.getSelection();
+  if (!selection) return { status: "stale" };
+  const els = selection.getRangeElements();
+  if (els.length !== 1 || !els[0].getElement().editAsText) return { status: "multi" };
+  const re = els[0];
+  const t = re.getElement().asText();
+  const start = re.getStartOffset();
+  const end = re.getEndOffsetInclusive();
+  if (t.getText().substring(start, end + 1) !== original) return { status: "stale" };
+  t.deleteText(start, end);
+  if (fixText.length > 0) t.insertText(start, fixText);
+  try { doc.setCursor(doc.newPosition(t, start + fixText.length)); } catch (e) {}
+  return { status: "success" };
+}
+
 /** ⚡ FAST INSERTION ENGINE Strips away verification layers to reduce button lag. **/
 function taskInsertTextAtCursor(text) {
   try {
