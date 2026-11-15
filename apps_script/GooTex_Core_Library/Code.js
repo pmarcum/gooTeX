@@ -880,8 +880,15 @@ function parseLocalAssets(text) {
   const sectionsList = [];
   const sections = [];
   const secRegex = /\\(section|subsection|subsubsection|proposalComponent|proposalNestedComponent)\*?\s*(?:\[.*?\])*\s*\{(.*?)\}/g;
+  // True when the command at idx sits after an unescaped % on its line (commented out).
+  const isCommented = (idx) => {
+    const ls = text.lastIndexOf('\n', idx - 1) + 1;
+    const prefix = text.substring(ls, idx);
+    return _uncommented(prefix).length !== prefix.length;
+  };
   let sMatch;
   while ((sMatch = secRegex.exec(text)) !== null) {
+      if (isCommented(sMatch.index)) continue;   // skip commented-out headings
       let startIdx = sMatch.index;
       let lvl = 1;
       if (sMatch[1] === 'subsection') lvl = 2;
@@ -914,6 +921,7 @@ function parseLocalAssets(text) {
   const refRegex = /\\proposalReferences(?:\[.*?\])*/g;
   let rMatch;
   while ((rMatch = refRegex.exec(text)) !== null) {
+      if (isCommented(rMatch.index)) continue;   // skip a commented-out \proposalReferences
       const startIdx = rMatch.index;
       let lookaheadText = text.substring(startIdx + rMatch[0].length, Math.min(text.length, startIdx + 1500));
       const stopMatch = lookaheadText.search(/\\(?:section|subsection|subsubsection|proposalComponent|proposalNestedComponent|begin)\s*[\*\[\{]/);

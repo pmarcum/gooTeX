@@ -143,19 +143,34 @@ function styleRegex(container, regex, color, isBold, isItalic, bgColor, isStrike
   }
 }
 
+// Return the part of a single line BEFORE its first unescaped % (a LaTeX comment).
+// Used so commented-out commands (e.g. "%\section{Abstract}") are ignored by the
+// outline and the Sects tab. Handles \% (literal percent) and \\% (escaped
+// backslash, then a real comment). Shared across the Core library files.
+function _uncommented(s) {
+  var out = '';
+  for (var i = 0; i < s.length; i++) {
+    if (s[i] === '\\') { out += s[i] + (s[i + 1] || ''); i++; continue; }
+    if (s[i] === '%') break;
+    out += s[i];
+  }
+  return out;
+}
+
 function updateDocumentOutline(body) {
   const paragraphs = body.getParagraphs();
   paragraphs.forEach(p => {
     const text = p.getText();
+    const code = _uncommented(text);   // ignore anything after an unescaped %
     let target = DocumentApp.ParagraphHeading.NORMAL;
-    if (text.includes('\\section{') || text.includes('\\proposalComponent') ||
-        text.includes('\\proposalNestedComponent') || text.includes('\\proposalReferences'))
+    if (code.includes('\\section{') || code.includes('\\proposalComponent') ||
+        code.includes('\\proposalNestedComponent') || code.includes('\\proposalReferences'))
        target = DocumentApp.ParagraphHeading.HEADING1;
-    else if (text.includes('\\subsection{')) target = DocumentApp.ParagraphHeading.HEADING2;
-    else if (text.includes('\\subsubsection{')) target = DocumentApp.ParagraphHeading.HEADING3;
-    else if (text.includes('\\paragraph{')) target = DocumentApp.ParagraphHeading.HEADING4;
+    else if (code.includes('\\subsection{')) target = DocumentApp.ParagraphHeading.HEADING2;
+    else if (code.includes('\\subsubsection{')) target = DocumentApp.ParagraphHeading.HEADING3;
+    else if (code.includes('\\paragraph{')) target = DocumentApp.ParagraphHeading.HEADING4;
     else if (text.includes('%!!')) target = DocumentApp.ParagraphHeading.HEADING5;
-    else if (text.includes('\\begin{figure}') || text.includes('\\begin{table}')) target = DocumentApp.ParagraphHeading.HEADING6;
+    else if (code.includes('\\begin{figure}') || code.includes('\\begin{table}')) target = DocumentApp.ParagraphHeading.HEADING6;
     if (p.getHeading() !== target) {
        p.setHeading(target);
        if (target !== DocumentApp.ParagraphHeading.NORMAL) {
