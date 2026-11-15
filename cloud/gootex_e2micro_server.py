@@ -298,6 +298,19 @@ def flatten_image_path(raw_path):
     """
     return os.path.basename(raw_path.strip())
 
+# Strip the on-screen "launch banner" so it never reaches LaTeX. Everything from a
+# line matching  %gootex-banner-start  through  %gootex-banner-end  (inclusive) is
+# removed. The banner lets the author keep launch instructions + a logo visible at
+# the top of the body in pageless view (where headers/watermarks vanish) without
+# that text compiling into the PDF. Both sentinels are LaTeX comments, so even if
+# this strip is somehow skipped the markers themselves are harmless.
+_GOOTEX_BANNER_RE = re.compile(
+    r'(?ims)^[ \t]*%+[ \t]*gootex-banner-start\b.*?^[ \t]*%+[ \t]*gootex-banner-end\b[^\n]*\n?')
+def strip_gootex_banner(text):
+    if not text:
+        return text
+    return _GOOTEX_BANNER_RE.sub('', text)
+
 def flatten_tex_image_paths(tex_content):
     """Rewrites all image paths in tex source to bare filenames.
     Finds any {filename.ext} where ext is a known image extension.
@@ -937,6 +950,7 @@ def handle_request():
         # WRITE TEXT FILES TO CACHE (always fresh)
         # ----------------------------------------------------------
         raw_text = data.get("main_text", "") or data.get("raw_text", "")
+        raw_text = strip_gootex_banner(raw_text)   # drop the on-screen launch banner
         if task == "compile":
             raw_text = inject_metadata(raw_text, data.get("user"), file_name)
 
