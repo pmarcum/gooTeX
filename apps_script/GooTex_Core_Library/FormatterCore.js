@@ -89,6 +89,22 @@ function runStyleRules(container) {
  * break, or \n / \r), so a comment never bleeds across Shift+Enter lines that
  * share one Google Docs paragraph.
  */
+// Apply bgColor across [start,end] ONLY where the current background is unset or the
+// formatter's own highlight; leave any manually-set highlight untouched. Works run by
+// run, so an untouched part of a %!/%!! line still gets gold while a part the author
+// recolored keeps their color.
+function _applyBgPreserving(t, start, end, bgColor) {
+  let rs = start, prev = t.getBackgroundColor(start);
+  for (let i = start + 1; i <= end; i++) {
+    const cur = t.getBackgroundColor(i);
+    if (cur !== prev) {
+      if (prev === null || String(prev).toLowerCase() === FORMATTER_HL) t.setBackgroundColor(rs, i - 1, bgColor);
+      rs = i; prev = cur;
+    }
+  }
+  if (prev === null || String(prev).toLowerCase() === FORMATTER_HL) t.setBackgroundColor(rs, end, bgColor);
+}
+
 function styleCommentLine(container, re, color, isBold, isItalic, bgColor) {
   const textElement = container.editAsText();
   const s = textElement.getText();
@@ -102,7 +118,7 @@ function styleCommentLine(container, re, color, isBold, isItalic, bgColor) {
       if (color) textElement.setForegroundColor(start, end, color);
       textElement.setBold(start, end, !!isBold);
       textElement.setItalic(start, end, !!isItalic);
-      if (bgColor) textElement.setBackgroundColor(start, end, bgColor);
+      if (bgColor) _applyBgPreserving(textElement, start, end, bgColor);
     }
     if (re.lastIndex <= m.index) re.lastIndex = m.index + 1;
   }
