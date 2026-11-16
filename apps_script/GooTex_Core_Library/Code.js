@@ -977,6 +977,7 @@ function parseLocalAssets(text) {
   const figRegex = /\\begin\{(figure\*?|wrapfigure|sidewaysfigure\*?|marginfigure|SCfigure\*?)\}\s*(?:\[.*?\])?\s*([\s\S]*?)\\end\{\1\}/g;
   let match;
   while ((match = figRegex.exec(text)) !== null) {
+      if (isCommented(match.index)) continue;   // skip a commented-out figure block
       let block      = match[2];
       let cleanBlock = block.replace(/(^|[^\\])%.*$/gm, '$1');
       let label      = (cleanBlock.match(/\\label\{([^}]+)\}/) || [])[1] || "";
@@ -998,6 +999,7 @@ function parseLocalAssets(text) {
   }
   const tabRegex = /\\begin\{(table\*?|deluxetable\*?|sidewaystable\*?|longtable|wraptable)\}\s*(?:\[.*?\])?\s*(?:\{.*?\})?([\s\S]*?)\\end\{\1\}/g;
   while ((match = tabRegex.exec(text)) !== null) {
+      if (isCommented(match.index)) continue;   // skip a commented-out table block
       let block       = match[2];
       let cleanBlock  = block.replace(/(^|[^\\])%.*$/gm, '$1');
       let label       = (cleanBlock.match(/\\label\{([^}]+)\}/) || [])[1] || "";
