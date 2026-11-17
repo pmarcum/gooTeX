@@ -186,7 +186,7 @@ function updateDocumentOutline(body) {
     else if (code.includes('\\subsubsection{')) target = DocumentApp.ParagraphHeading.HEADING3;
     else if (code.includes('\\paragraph{')) target = DocumentApp.ParagraphHeading.HEADING4;
     else if (text.includes('%!!')) target = DocumentApp.ParagraphHeading.HEADING5;
-    else if (code.includes('\\begin{figure}') || code.includes('\\begin{table}')) target = DocumentApp.ParagraphHeading.HEADING6;
+    else if (/\\begin\{(figure\*?|wrapfigure|sidewaysfigure\*?|marginfigure|SCfigure\*?|table\*?|deluxetable\*?|sidewaystable\*?|longtable|wraptable)\}/.test(code)) target = DocumentApp.ParagraphHeading.HEADING6;
     if (p.getHeading() !== target) {
        p.setHeading(target);
        if (target !== DocumentApp.ParagraphHeading.NORMAL) {
