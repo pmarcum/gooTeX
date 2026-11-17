@@ -1178,7 +1178,28 @@ def handle_request():
 
             lint_log, wc = future_lint.result(), future_wc.result()
 
-        compiler_log = parse_latex_log(sub.stdout)
+        # Parse the final pass's stdout AND the .log file. The .log file is the
+        # source of truth — on some failures stdout comes back empty while the .log
+        # still holds the error, which otherwise left the Logs tab silent. Both are
+        # fed to parse_latex_log together; its own seen-set drops duplicates.
+        _log_src = sub.stdout or ""
+        _logfile = os.path.join(cache_dir, job_name + ".log")
+        if os.path.exists(_logfile):
+            try:
+                with open(_logfile, "r", encoding="utf-8", errors="replace") as _lf:
+                    _log_src = _log_src + "\n" + _lf.read()
+            except Exception:
+                pass
+        compiler_log = parse_latex_log(_log_src)
+
+        # Never fail silently: if a compile returned an error and produced no PDF,
+        # put an explicit failure line at the top of the log so the sidebar always
+        # shows a reason, even if parsing found nothing quotable.
+        if task == "compile" and sub.returncode != 0 and \
+           not os.path.exists(os.path.join(cache_dir, job_name + ".pdf")):
+            _fail = format_log_item(job_name + ".tex", "0", "Error", "Compiler",
+                                    "Compile failed — no PDF produced. Fix the error(s) below and recompile.")
+            compiler_log = (_fail + ("\n" + compiler_log if compiler_log else "")).strip()
 
         # Append BibMan warnings if any keys were missing
         if bibman_warn:
