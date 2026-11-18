@@ -1419,7 +1419,7 @@ function taskInviteCoAuthor() {
     folderUrl = docFolder.getUrl();
     share(docFolder.getId());
   } catch(e) { folderNote = "\n(The project folder could not be shared: " + e.message + ")"; }
-  const safeLink = doc.getUrl() + "?mode=suggest";
+  const safeLink = "https://docs.google.com/document/d/" + doc.getId() + "/edit?mode=suggest";
   const subject  = "Invitation to Collaborate: " + doc.getName();
   const body     = "Hi,\n\nYou are now a contributor to \"" + doc.getName() + "\".\n\n" +
                    "Document: " + safeLink + "\nProject folder: " + folderUrl + "\n\n" +
