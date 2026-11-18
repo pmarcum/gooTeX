@@ -42,6 +42,19 @@ function onOpen() {
       .addSeparator()
       .addItem('🧹 Reset Connection',      'masterSync'));
   menu.addToUi();
+  // Remind the author to turn on Suggesting mode so their edits are tracked.
+  // Google does not let a script set the editing mode, so this can only prompt,
+  // not switch it. Wrapped in try/catch because a simple onOpen trigger can have
+  // its UI suppressed for some users — if so, the menu above is still built.
+  try {
+    ui.alert(
+      "📝 Track your changes",
+      "To keep your edits tracked, switch to Suggesting mode:\n\n" +
+      "Click the pencil icon near the top-right of the document and choose “Suggesting”.\n\n" +
+      "(You can switch back to Editing at any time.)",
+      ui.ButtonSet.OK
+    );
+  } catch (e) { /* onOpen UI limits — the menu is already in place */ }
 }
 
 function checkVersion() {
