@@ -302,6 +302,7 @@
       document.getElementById('help-panel').innerText = helpStrings[id] || "";
       var ph = {'refs': 'a:smith y:2020- t:spiral j:apj tag:agn', 'figs': 'Search labels or captions', 'tables': 'Search labels or captions', 'sects': 'Search labels or titles', 'log': 'Search error/warning log', 'snip': 'Search templates', 'worpt': 'Filter tables'};
       document.getElementById('universal-filter').placeholder = ph[id] || "Filter...";
+      document.getElementById('universal-filter').value = '';   // clear the filter when switching tabs
       applyFilter();
       /* FIX: Only clear status if NOT Success AND NOT Busy */
       if (!isSuccessState && !systemBusy) updateStatus("");
@@ -611,6 +612,7 @@
         container.innerHTML += '<hr style="border:0; border-top:1px solid #444; margin:10px 0;">';
       }
       others.forEach(r => { container.appendChild(createRefCard(r, false)); });
+      if (currentTab === 'refs') applyFilter();   // keep the live search filter applied after a refresh
     }
 
     function createRefCard(item, isStar) {
