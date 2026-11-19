@@ -78,7 +78,7 @@ function runStyleRules(container) {
     styleRegex(container, "\\}", "#000000", false, false);
     // Comment family — each bounded to its own visual line so a % comment on one
     // Shift+Enter line never spills its color onto the lines below it.
-    styleCommentLine(container, /(^|[^\\])%[^\u000b\n\r]*/g, "#9a9a9a", false, true, null);
+    styleCommentLine(container, /(^|[^\\])%[^\u000b\n\r]*/g, "#9a9a9a", false, true, null, true);
     styleCommentLine(container, /%!(?!!)[^\u000b\n\r]*/g, "#000000", true, false, "#FCE100");
     styleCommentLine(container, /%!![^\u000b\n\r]*/g, "#C31D03", true, true, "#FCE100");
 }
@@ -105,7 +105,7 @@ function _applyBgPreserving(t, start, end, bgColor) {
   if (prev === null || String(prev).toLowerCase() === FORMATTER_HL) t.setBackgroundColor(rs, end, bgColor);
 }
 
-function styleCommentLine(container, re, color, isBold, isItalic, bgColor) {
+function styleCommentLine(container, re, color, isBold, isItalic, bgColor, linkify) {
   const textElement = container.editAsText();
   const s = textElement.getText();
   re.lastIndex = 0;
@@ -119,6 +119,18 @@ function styleCommentLine(container, re, color, isBold, isItalic, bgColor) {
       textElement.setBold(start, end, !!isBold);
       textElement.setItalic(start, end, !!isItalic);
       if (bgColor) _applyBgPreserving(textElement, start, end, bgColor);
+      if (linkify) {
+        // Keep a URL inside the comment looking like a link — blue and underlined —
+        // instead of greyed out with the rest of the comment.
+        const seg = s.substring(start, end + 1);
+        const urlRe = /https?:\/\/[^\s<>\u000b\n\r]+/g;
+        let u;
+        while ((u = urlRe.exec(seg)) !== null) {
+          const us = start + u.index, ue = us + u[0].length - 1;
+          textElement.setForegroundColor(us, ue, "#1155cc");
+          textElement.setUnderline(us, ue, true);
+        }
+      }
     }
     if (re.lastIndex <= m.index) re.lastIndex = m.index + 1;
   }

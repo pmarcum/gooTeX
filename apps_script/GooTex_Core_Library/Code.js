@@ -1357,8 +1357,17 @@ function getPdfUrl(serverProvidedName) {
 }
 
 function triggerSpotlightStyle() {
-  clearAllErrorHighlights();
   const doc = DocumentApp.getActiveDocument();
+  // Only ever format the first (main LaTeX) tab. If the cursor is in another tab —
+  // used as a brainstorm/whiteboard — do nothing, so that content is left untouched.
+  try {
+    const tabs = doc.getTabs();
+    if (tabs && tabs.length > 1) {
+      const active = doc.getActiveTab();
+      if (active && active.getId() !== tabs[0].getId()) return;
+    }
+  } catch (e) { /* Tabs API unavailable on this runtime — format as before */ }
+  clearAllErrorHighlights();
   const cursor = doc.getCursor();
   let offset = 0;
   if (cursor) {
