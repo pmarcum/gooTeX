@@ -6,7 +6,7 @@
 **/
 
 /******************************/
-var GOOTEX_CORE_VERSION   = 7;
+var GOOTEX_CORE_VERSION   = 8;
 /******************************/
 
 function getCoreVersion() {return GOOTEX_CORE_VERSION;}
