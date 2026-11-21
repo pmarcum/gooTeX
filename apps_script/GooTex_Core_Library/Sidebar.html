@@ -267,6 +267,7 @@
     var isSuccessState = false; // Flag to keep Success button visible
     var aiHistory      = [];   // Conversation history for Gemini follow-up chat
     var highlightClearTimer = null;
+    var worptInsertStatusTimer = null;   // auto-clears the "Inserted ..." confirmation so the progress bar doesn't linger
     const helpStrings = {
       'log': 'Click entry to jump to document location',
       'refs': 'Filter: a:auth y:yr t:title j:journal tag:tag (or plain words)',
@@ -1274,7 +1275,17 @@
           if (r.status === 'duplicate') {
             if (confirm(r.message + "\n\nInsert another copy anyway?")) worptInsert(name, true);
           } else if (r.status === 'ok') {
-            updateStatus(r.pkgNote ? r.pkgNote : ("Inserted " + name));
+            // Show a brief confirmation, then clear it so the progress bar doesn't
+            // stay lit (the insert is finished — nothing is running). Only clear if
+            // our own message is still showing, so a newer status is left alone.
+            var doneMsg = r.pkgNote ? r.pkgNote : ("Inserted " + name);
+            updateStatus(doneMsg);
+            if (worptInsertStatusTimer) clearTimeout(worptInsertStatusTimer);
+            worptInsertStatusTimer = setTimeout(function(){
+              var el = document.getElementById('status-msg');
+              if (el && el.innerHTML === doneMsg) updateStatus("");
+              worptInsertStatusTimer = null;
+            }, 2500);
           } else {
             updateStatus("⚠️ " + (r.message || "insert failed"));
           }
