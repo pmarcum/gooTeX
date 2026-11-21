@@ -1253,7 +1253,7 @@
       (data.tables || []).forEach(function(name){
         html += "<div class='filter-item' style='display:flex; align-items:center; gap:6px; margin-bottom:5px;'>" +
           "<button class='macro-btn' style='flex:1; text-align:left;' onclick=\"worptInsert('" + worptEsc(name) + "')\">➕ " + worptEsc(name) + "</button>" +
-          "<a href='https://github.com/pmarcum/WorPT/tree/main/latexTableTemplates/" + encodeURIComponent(name) + "' target='_blank' style='font-size:10px; color:#4fc1ff; text-decoration:none;'>preview</a>" +
+          "<a href='#' onclick=\"worptPreview('" + worptEsc(name) + "'); return false;\" style='font-size:10px; color:#4fc1ff; text-decoration:none;'>preview</a>" +
           "</div>";
       });
       html += "<button class='macro-btn' style='margin-top:10px;' onclick='loadWorpt()'>↻ Refresh</button>";
@@ -1283,6 +1283,70 @@
         .dispatch('worptInsertTable', name, block, worptPkgLine, !!force);
     }
 
+    // === WorPT table preview (live picture drawn by WorPT, shown on click) ===
+    // Opens the overlay, asks the server to draw this one table, and renders the
+    // PNG page(s). Nothing is saved to the Doc or the compile folder. A cold draw
+    // can run past the server's 20s wait; in that case we show a "click preview
+    // again" note (the retry lands on WorPT's cached picture) with a Draw-again
+    // button so the user needn't dismiss the overlay first.
+    function worptPreview(name) {
+      var ov   = document.getElementById('worpt-preview-overlay');
+      var ttl  = document.getElementById('worpt-preview-title');
+      var body = document.getElementById('worpt-preview-body');
+      ttl.textContent = name;
+      body.innerHTML = "<div style='padding:34px 12px; text-align:center; color:#888; font-size:12px;'>✏️ Drawing…<div style='margin-top:6px; font-size:11px; color:#666;'>A table's first draw can take a few seconds.</div></div>";
+      ov.style.display = 'flex';
+      google.script.run
+        .withSuccessHandler(function(r){ worptRenderPreview(name, r); })
+        .withFailureHandler(function(e){ worptRenderPreview(name, { ok:false, error: (e && e.message) || "preview failed" }); })
+        .dispatch('worptFetchPreview', name);
+    }
+
+    function worptRenderPreview(name, r) {
+      var body = document.getElementById('worpt-preview-body');
+      if (!r) { r = { ok:false, drawing:true }; }
+      if (r.ok && r.pages && r.pages.length) {
+        var html = "";
+        r.pages.forEach(function(p){
+          html += "<img src='data:image/png;base64," + p + "' style='width:100%; display:block; margin:0 0 8px; border:1px solid #3a3a3a; border-radius:4px;' alt='" + worptEsc(name) + " preview'>";
+        });
+        html += "<div style='font-size:10px; color:#888; text-align:center; margin:4px 2px 2px; line-height:1.4;'>Preview only — default settings and suggested caption in " +
+                worptEsc(r.document_class || "the latest AASTeX") + ". Row heights, fonts and caption can differ from the compiled PDF, which is the true view.</div>";
+        body.innerHTML = html;
+      } else if (r.drawing) {
+        body.innerHTML = "<div style='padding:30px 12px; text-align:center; color:#e0b24f; font-size:12px; line-height:1.5;'>⏳ Still drawing — click <b>preview</b> again in a few seconds.<div style='margin-top:12px;'>" +
+                "<button class='macro-btn' onclick=\"worptPreview('" + worptEsc(name) + "')\">↻ Draw again</button></div></div>";
+      } else {
+        body.innerHTML = "<div style='padding:22px 12px; text-align:center; color:#e57373; font-size:12px; line-height:1.5;'>⚠️ " + worptEsc(r.error || "Couldn't draw this table.") +
+                "<div style='margin-top:12px;'><button class='macro-btn' onclick=\"worptPreview('" + worptEsc(name) + "')\">↻ Try again</button></div></div>";
+      }
+    }
+
+    function worptClosePreview() {
+      var ov = document.getElementById('worpt-preview-overlay');
+      ov.style.display = 'none';
+      document.getElementById('worpt-preview-body').innerHTML = '';
+      document.getElementById('worpt-preview-title').textContent = '';
+    }
+
   </script>
+
+  <!-- WorPT preview overlay: a click-to-dismiss picture of one table, drawn live
+       by WorPT. Covers the sidebar; the backdrop or × closes it. -->
+  <div id="worpt-preview-overlay"
+       style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.78);
+              flex-direction:column; align-items:stretch; padding:10px;"
+       onclick="if(event.target===this) worptClosePreview();">
+    <div style="background:#252526; border:1px solid #3a3a3a; border-radius:6px; max-height:100%;
+                display:flex; flex-direction:column; overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid #3a3a3a; flex:0 0 auto;">
+        <span style="font-size:12px; color:#4fc1ff; font-weight:700; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🖼️ <span id="worpt-preview-title"></span></span>
+        <button onclick="worptClosePreview()" title="Close"
+                style="background:none; border:none; color:#aaa; font-size:18px; line-height:1; cursor:pointer; padding:0 4px;">×</button>
+      </div>
+      <div id="worpt-preview-body" style="padding:10px; overflow:auto; flex:1 1 auto;"></div>
+    </div>
+  </div>
+
 </body>
 </html>

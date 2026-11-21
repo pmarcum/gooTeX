@@ -1855,6 +1855,37 @@ function worptFetchBlocks() {
   }
 }
 
+// Called when a table's "preview" link is clicked. Proxies to the VM server's
+// worpt_preview task, which asks WorPT to draw just that table. Returns:
+//   { ok:true,  pages:[<base64 PNG>,...], document_class }  — show the picture(s)
+//   { ok:false, drawing:true }                              — WorPT still drawing;
+//                                                             sidebar says "click again"
+//   { ok:false, error:"<message>" }                         — anything else, shown as-is
+// The picture is never written to Drive or the compile folder — it lives only in
+// the sidebar overlay.
+function worptFetchPreview(name) {
+  var id = _worptGetId();
+  if (!id) return { ok: false, error: "This document isn't linked to a WorPT work plan." };
+  if (!_CONFIG || !_CONFIG.GOOTEX_SERVER_URL) return { ok: false, error: "Server URL missing — check Config." };
+  var doc = DocumentApp.getActiveDocument();
+  var baseUrl = _CONFIG.GOOTEX_SERVER_URL.endsWith('/') ? _CONFIG.GOOTEX_SERVER_URL : _CONFIG.GOOTEX_SERVER_URL + '/';
+  var payload = { task: "worpt_preview", doc_id: doc.getId(), lineage: _lineage(doc), worpt_id: id, name: name };
+  try {
+    var resp = UrlFetchApp.fetch(baseUrl, {
+      method: "post", contentType: "application/json",
+      payload: JSON.stringify(payload), muteHttpExceptions: true,
+      headers: { "ngrok-skip-browser-warning": "true", "X-GooTeX-Credential": _CONFIG.GOOTEX_CREDENTIAL || "" }
+    });
+    if (resp.getResponseCode() !== 200) return { ok: false, error: "Server error (HTTP " + resp.getResponseCode() + ")." };
+    var d = JSON.parse(resp.getContentText());
+    if (d.status === 'ok') return { ok: true, pages: d.pages || [], document_class: d.document_class || "" };
+    if (d.status === 'drawing') return { ok: false, drawing: true };
+    return { ok: false, error: (d.message || "WorPT couldn't draw this table.") + (d.code ? " (" + d.code + ")" : "") };
+  } catch (e) {
+    return { ok: false, error: "Couldn't reach the server: " + e.message };
+  }
+}
+
 // True when this document has a '% worpt:' marker. The sidebar calls this on load
 // to decide whether to SHOW the WorPT tab (it stays hidden on ordinary papers).
 function worptIsEnabled() { return !!_worptGetId(); }

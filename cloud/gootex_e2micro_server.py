@@ -859,6 +859,54 @@ def handle_request():
                             'checks': wdata.get('checks', []) or []}), 200
 
         # ----------------------------------------------------------
+        # WORPT PREVIEW — sidebar proxy to WorPT: returns a rendered picture of
+        # ONE table (base64 PNG per page) so the WorPT tab can show a live
+        # thumbnail on click. Nothing is written to disk here and nothing goes
+        # into the compile folder; the read-only key never leaves the VM. The
+        # server→WorPT wait is deliberately short (20s): WorPT draws one table
+        # at a time and caches each picture on disk, so a cold draw that runs
+        # past the wait is reported back as 'drawing' (the sidebar then asks the
+        # user to click preview again, and the retry lands on the cached PNG)
+        # rather than holding the single worker for a long queue of drawings.
+        # ----------------------------------------------------------
+        if task == 'worpt_preview':
+            work_plan_id = (data.get('worpt_id') or '').strip()
+            name         = (data.get('name') or '').strip()
+            if not re.match(r'^[A-Za-z0-9_-]{12}$', work_plan_id):
+                return jsonify({'status': 'error', 'code': 'bad_id',
+                                'message': 'Work plan ID is missing or malformed (expected 12 characters).'}), 200
+            if not re.match(r'^[A-Za-z0-9_-]{1,64}$', name):
+                return jsonify({'status': 'error', 'code': 'bad_name',
+                                'message': 'Table name is missing or malformed.'}), 200
+            if not WORPT_SECRET:
+                return jsonify({'status': 'error', 'code': 'unreachable',
+                                'message': 'WorPT read-only key is not configured on the server.'}), 200
+            wurl = f"{WORPT_URL}/api/proposals/{work_plan_id}/tables/{name}?preview=1"
+            try:
+                wresp = http_requests.get(wurl, headers={"X-WorPT-Credential": WORPT_SECRET}, timeout=20)
+            except http_requests.exceptions.Timeout:
+                print(f"  ⏳  WorPT preview still drawing (>20s): {name}")
+                return jsonify({'status': 'drawing'}), 200
+            except http_requests.exceptions.RequestException as e:
+                return jsonify({'status': 'error', 'code': 'unreachable',
+                                'message': f'WorPT is unreachable: {e}'}), 200
+            try:
+                wdata = wresp.json()
+            except Exception as e:
+                return jsonify({'status': 'error', 'code': 'internal',
+                                'message': f'WorPT sent an unreadable reply: {e}'}), 200
+            if isinstance(wdata, dict) and wdata.get('error'):
+                return jsonify({'status': 'error', 'code': 'worpt', 'message': wdata.get('error')}), 200
+            pages = (wdata or {}).get('pages') or []
+            if not pages:
+                return jsonify({'status': 'error', 'code': 'empty',
+                                'message': 'WorPT returned no picture for this table.'}), 200
+            print(f"  🖼️  WorPT preview: {name} — {len(pages)} page(s)")
+            return jsonify({'status': 'ok', 'pages': pages,
+                            'document_class': wdata.get('document_class', ''),
+                            'seconds': wdata.get('seconds')}), 200
+
+        # ----------------------------------------------------------
         # SETUP CACHE DIR
         # ----------------------------------------------------------
         cache_dir  = get_cache_dir(doc_id)
