@@ -895,16 +895,27 @@ def handle_request():
             except Exception as e:
                 return jsonify({'status': 'error', 'code': 'internal',
                                 'message': f'WorPT sent an unreadable reply: {e}'}), 200
-            if isinstance(wdata, dict) and wdata.get('error'):
+            if not isinstance(wdata, dict):
+                return jsonify({'status': 'error', 'code': 'internal',
+                                'message': 'WorPT sent an unexpected reply.'}), 200
+            # A top-level error (e.g. no such table) can come back with no preview.
+            if wdata.get('error'):
                 return jsonify({'status': 'error', 'code': 'worpt', 'message': wdata.get('error')}), 200
-            pages = (wdata or {}).get('pages') or []
+            # WorPT returns the whole table object; the drawn picture is nested under
+            # its 'preview' key:  preview.pages = [base64 PNG, ...] (one per page),
+            # preview.document_class, preview.seconds, or preview.error if the draw
+            # failed. (The ?preview=1 flag stays in the query string, set on wurl above.)
+            preview = wdata.get('preview') or {}
+            if preview.get('error'):
+                return jsonify({'status': 'error', 'code': 'worpt', 'message': preview.get('error')}), 200
+            pages = preview.get('pages') or []
             if not pages:
                 return jsonify({'status': 'error', 'code': 'empty',
                                 'message': 'WorPT returned no picture for this table.'}), 200
             print(f"  🖼️  WorPT preview: {name} — {len(pages)} page(s)")
             return jsonify({'status': 'ok', 'pages': pages,
-                            'document_class': wdata.get('document_class', ''),
-                            'seconds': wdata.get('seconds')}), 200
+                            'document_class': preview.get('document_class', ''),
+                            'seconds': preview.get('seconds')}), 200
 
         # ----------------------------------------------------------
         # SETUP CACHE DIR
