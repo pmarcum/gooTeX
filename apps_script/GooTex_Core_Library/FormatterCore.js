@@ -188,47 +188,62 @@ function _uncommented(s) {
 // WorPT table blocks live inside \begin{<name>} environments named after the table
 // (not table/table*/longtable/...), so the standard environment regex below never
 // matches them. Each block is bounded by '%<colons> start <name> <colons>' and a
-// matching end marker, one line each. We track whether we're inside such a block and
-// use its \caption line as the table's single outline entry — so the entry reads as
-// the caption, and only real tables appear: the two empty team-summaries blocks and
-// the environment-less isANONpapers block have no \caption and are left out (they
-// are not tables). A commented-out caption is dropped by _uncommented, so a
-// commented-out block is skipped the same way.
+// matching end marker, one line each. We buffer a block's paragraphs and, at its end
+// marker, give the block's \input{<name>} line a single outline entry — but only when
+// the block contains a \caption, i.e. it is a real table. Anchoring on \input keeps
+// the entry readable: the \input line always names the table, even when the caption
+// holds only markup. The two empty team-summaries blocks and the environment-less
+// isANONpapers block have no \caption, so they get no entry (they are not tables).
 var _WORPT_START_RE = /^\s*%:+\s+start\s+\S+\s+:+\s*$/;
 var _WORPT_END_RE   = /^\s*%:+\s+end\s+\S+\s+:+\s*$/;
 function updateDocumentOutline(body) {
   const paragraphs = body.getParagraphs();
-  let inWorpt = false;   // true while between a WorPT start and end marker
+  const setHeading = (p, target) => {
+    if (p.getHeading() !== target) {
+      p.setHeading(target);
+      if (target !== DocumentApp.ParagraphHeading.NORMAL) {
+        p.setLineSpacing(1.0); p.setSpacingBefore(0); p.setSpacingAfter(0);
+      }
+    }
+  };
+  // While inside a WorPT block: collect its paragraphs, remember the \input line and
+  // whether any \caption appears, then set headings at the end marker.
+  let buf = null;   // { paras: [Paragraph], inputIdx: number, hasCaption: bool }
+  const flushWorpt = () => {
+    if (!buf) return;
+    buf.paras.forEach((bp, i) => {
+      const isEntry = buf.hasCaption && i === buf.inputIdx;
+      setHeading(bp, isEntry ? DocumentApp.ParagraphHeading.HEADING6 : DocumentApp.ParagraphHeading.NORMAL);
+    });
+    buf = null;
+  };
   paragraphs.forEach(p => {
     const text = p.getText();
     const code = _uncommented(text);   // ignore anything after an unescaped %
-    let target = DocumentApp.ParagraphHeading.NORMAL;
     const isSectioning = code.includes('\\section{') || code.includes('\\proposalComponent') ||
         code.includes('\\proposalNestedComponent') || code.includes('\\proposalReferences') ||
         code.includes('\\subsection{') || code.includes('\\subsubsection{') || code.includes('\\paragraph{');
-    if (_WORPT_START_RE.test(text)) { inWorpt = true; }        // marker lines stay NORMAL
-    else if (_WORPT_END_RE.test(text)) { inWorpt = false; }
-    else if (inWorpt && !isSectioning) {
-      // inside a WorPT table block: the caption line is the table's outline entry
-      if (/\\(?:table)?caption\b/.test(code)) target = DocumentApp.ParagraphHeading.HEADING6;
-    } else {
-      if (inWorpt) inWorpt = false;   // safety: a sectioning line can't sit inside a table block
-      if (code.includes('\\section{') || code.includes('\\proposalComponent') ||
-          code.includes('\\proposalNestedComponent') || code.includes('\\proposalReferences'))
-         target = DocumentApp.ParagraphHeading.HEADING1;
-      else if (code.includes('\\subsection{')) target = DocumentApp.ParagraphHeading.HEADING2;
-      else if (code.includes('\\subsubsection{')) target = DocumentApp.ParagraphHeading.HEADING3;
-      else if (code.includes('\\paragraph{')) target = DocumentApp.ParagraphHeading.HEADING4;
-      else if (text.includes('%!!')) target = DocumentApp.ParagraphHeading.HEADING5;
-      else if (/\\begin\{(figure\*?|wrapfigure|sidewaysfigure\*?|marginfigure|SCfigure\*?|table\*?|deluxetable\*?|sidewaystable\*?|longtable|wraptable)\}/.test(code)) target = DocumentApp.ParagraphHeading.HEADING6;
+    if (_WORPT_START_RE.test(text)) { flushWorpt(); buf = { paras: [], inputIdx: -1, hasCaption: false }; setHeading(p, DocumentApp.ParagraphHeading.NORMAL); return; }
+    if (buf) {
+      if (_WORPT_END_RE.test(text)) { flushWorpt(); setHeading(p, DocumentApp.ParagraphHeading.NORMAL); return; }
+      if (!isSectioning) {   // accumulate the block's lines
+        if (buf.inputIdx === -1 && /\\input\b/.test(code)) buf.inputIdx = buf.paras.length;
+        if (/\\(?:table)?caption\b/.test(code)) buf.hasCaption = true;
+        buf.paras.push(p);
+        return;
+      }
+      flushWorpt();   // safety: a sectioning line can't sit inside a table block — close it, then fall through
     }
-    if (p.getHeading() !== target) {
-       p.setHeading(target);
-       if (target !== DocumentApp.ParagraphHeading.NORMAL) {
-          p.setLineSpacing(1.0);
-          p.setSpacingBefore(0);
-          p.setSpacingAfter(0);
-       }
-    }
+    let target = DocumentApp.ParagraphHeading.NORMAL;
+    if (code.includes('\\section{') || code.includes('\\proposalComponent') ||
+        code.includes('\\proposalNestedComponent') || code.includes('\\proposalReferences'))
+       target = DocumentApp.ParagraphHeading.HEADING1;
+    else if (code.includes('\\subsection{')) target = DocumentApp.ParagraphHeading.HEADING2;
+    else if (code.includes('\\subsubsection{')) target = DocumentApp.ParagraphHeading.HEADING3;
+    else if (code.includes('\\paragraph{')) target = DocumentApp.ParagraphHeading.HEADING4;
+    else if (text.includes('%!!')) target = DocumentApp.ParagraphHeading.HEADING5;
+    else if (/\\begin\{(figure\*?|wrapfigure|sidewaysfigure\*?|marginfigure|SCfigure\*?|table\*?|deluxetable\*?|sidewaystable\*?|longtable|wraptable)\}/.test(code)) target = DocumentApp.ParagraphHeading.HEADING6;
+    setHeading(p, target);
   });
+  flushWorpt();   // a block missing its end marker is flushed as a non-table (all NORMAL)
 }
