@@ -532,9 +532,9 @@ def merge_local_bib(cache_dir, library_bib_name, bibman_text, cited_keys, missin
 #
 # A document names its WorPT work plan with a one-line marker in the source:
 #     % worpt: <12-char ID>
-# On any task that compiles (compile/draft/wordcount/zip) the server fetches the
-# plan's ten files (nine tables + worpt.sty) from WorPT on the VM loopback and
-# writes them into cache_dir BEFORE pdflatex runs, so \usepackage{worpt} and
+# On any task that compiles (compile/draft/wordcount/zip) the server fetches all of
+# the plan's files (worpt.sty plus one .tex per table) from WorPT on the VM loopback
+# and writes them into cache_dir BEFORE pdflatex runs, so \usepackage{worpt} and
 # \input{<table>} resolve. A digest (fingerprint) lets us skip rewriting unchanged
 # files. WorPT's "checks" (plan problems) and any error / offline condition are
 # surfaced in the compile log. The read-only key is used here only; it never

@@ -6,7 +6,7 @@
 **/
 
 /******************************/
-var GOOTEX_CORE_VERSION   = 8;
+var GOOTEX_CORE_VERSION   = 9;
 /******************************/
 
 function getCoreVersion() {return GOOTEX_CORE_VERSION;}
@@ -1022,6 +1022,27 @@ function parseLocalAssets(text) {
           label:       label,
           caption:     cleanTex(rawCap),
           comments:    cleanTex(rawComments),
+          section_ref: getParentSection(match.index),
+          type:        'tab'
+      });
+  }
+  // WorPT tables live in \begin{<name>} environments named after the table, bounded
+  // by '%<colons> start <name> <colons>' / '%<colons> end <name> <colons>' markers,
+  // so the standard tabRegex above misses them. Match each block by its markers and
+  // list it only when it has a caption — that leaves out the two empty team-summaries
+  // blocks and the environment-less isANONpapers block, which are not tables. Comments
+  // (the markers included) are stripped into cleanBlock first, so a commented-out
+  // block loses its caption and is skipped the same way.
+  const worptRegex = /^[ \t]*%:+[ \t]+start[ \t]+(\S+)[ \t]+:+[ \t]*$[\s\S]*?^[ \t]*%:+[ \t]+end[ \t]+\1[ \t]+:+[ \t]*$/gm;
+  while ((match = worptRegex.exec(text)) !== null) {
+      let cleanBlock = match[0].replace(/(^|[^\\])%.*$/gm, '$1');
+      let rawCap     = extractTexContent(cleanBlock, /\\(?:table)?caption(?:\[.*?\])?\{/);
+      if (!rawCap) continue;   // no caption -> not a table (team summaries, isANONpapers)
+      let label      = (cleanBlock.match(/\\label\{([^}]+)\}/) || [])[1] || "";
+      tables.push({
+          label:       label,
+          caption:     cleanTex(rawCap),
+          comments:    cleanTex(extractTexContent(cleanBlock, /\\tablecomments\{/) || ""),
           section_ref: getParentSection(match.index),
           type:        'tab'
       });

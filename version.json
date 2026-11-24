@@ -1,6 +1,6 @@
 {
-  "gootex_core_version": 8,
+  "gootex_core_version": 9,
   "gootex_attached_version": 1,
-  "gootex_core_notes": "v8: WorPT tab — the 'preview' link now draws a live picture of your own table (click to view in an overlay) instead of opening a static screenshot. To update: Extensions → Apps Script → Libraries → GooTeX_Core_Library → select version 8 → Save. v7: Check System Status shows each Doc's hidden mark (and whether the template is marked); clearer message when GOOTEX_TEMPLATE_URL is not set. v6: gooTeX only works in Docs started from your group's template (copies of papers are refused).",
+  "gootex_core_notes": "v9: WorPT tables now appear in the sidebar Tables tab and the document outline (they live in custom environments the scan previously skipped). To update: Extensions → Apps Script → Libraries → GooTeX_Core_Library → select version 9 → Save. v8: WorPT tab — the 'preview' link now draws a live picture of your own table (click to view in an overlay) instead of opening a static screenshot. v7: Check System Status shows each Doc's hidden mark (and whether the template is marked); clearer message when GOOTEX_TEMPLATE_URL is not set. v6: gooTeX only works in Docs started from your group's template (copies of papers are refused).",
   "gootex_thin_client_notes": "Replace Code.gs and Config.gs in your thin client with the latest version from GitHub"
 }
