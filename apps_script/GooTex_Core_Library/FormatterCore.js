@@ -2,9 +2,28 @@
  * SERVER-SIDE FORMATTER LOGIC (Dependency Injected)
  * ================================================================= */
 
+// A cheap, stable hash of the document text. Formatting only changes colors, weights
+// and headings — never the text — so this signature changes only on a real edit.
+function _fmtSignature(text) {
+    var h = 5381, i = text.length;
+    while (i) { h = ((h * 33) ^ text.charCodeAt(--i)) >>> 0; }
+    return text.length + ":" + h.toString(36);
+}
+
 function processSpotlightForDoc(id, centerIndex) {
     const doc = DocumentApp.openById(id);
     const body = doc.getBody();
+    // Skip the whole pass — no styling writes, no save — when the document text is
+    // unchanged since we last formatted it. A save re-syncs the open editor and can
+    // jerk the cursor/scroll, so an idle pass over already-formatted text (e.g. while
+    // the author is positioning the cursor or pausing) must not save. The pass still
+    // runs after a real edit, because then the text, and so the signature, has changed.
+    let props = null, sig = null;
+    try {
+      props = PropertiesService.getDocumentProperties();
+      sig   = _fmtSignature(body.getText());
+      if (props && props.getProperty("fmtSig") === sig) { return; }
+    } catch (e) { props = null; }   // properties unavailable on this runtime — format as before
     const totalChildren = body.getNumChildren();
     const WINDOW_SIZE = 30;
     let start = Math.max(0, centerIndex - WINDOW_SIZE);
@@ -19,6 +38,11 @@ function processSpotlightForDoc(id, centerIndex) {
        }
     }
     doc.saveAndClose();
+    // Record the text we just formatted so the next idle pass can skip. We store the
+    // signature computed before formatting (formatting never changes the text); if an
+    // edit happened to land mid-pass, the next pass will see a different signature and
+    // re-format, so nothing is skipped wrongly.
+    try { if (props) props.setProperty("fmtSig", sig); } catch (e) {}
 }
 
 // Colors the formatter itself applies. Any OTHER foreground color is treated as a
