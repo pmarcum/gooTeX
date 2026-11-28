@@ -6,7 +6,7 @@
 **/
 
 /******************************/
-var GOOTEX_CORE_VERSION   = 11;
+var GOOTEX_CORE_VERSION   = 12;
 /******************************/
 
 function getCoreVersion() {return GOOTEX_CORE_VERSION;}
@@ -599,9 +599,18 @@ function processResponse(res, taskName, doc) {
         compiledFolder = existing.hasNext() ? existing.next() : parent.createFolder("Compiled");
         result.tex_files.forEach(function(texFile) {
             const texBlob = Utilities.newBlob(texFile.content, 'text/plain', texFile.filename);
-            const existingTex = compiledFolder.getFilesByName(texFile.filename);
-            if (existingTex.hasNext()) {
-                Drive.Files.update({}, existingTex.next().getId(), texBlob);
+            // Overwrite only our OWN plain-text output. If a same-named file of another
+            // type is in the folder (e.g. a Google Doc a person named "X.tex"), skip it:
+            // never clobber it, and never write .tex content into a Doc. With no plain-text
+            // match we create our file, so it simply coexists with the foreign one.
+            const matches = compiledFolder.getFilesByName(texFile.filename);
+            var target = null;
+            while (matches.hasNext()) {
+                var f = matches.next();
+                if (f.getMimeType() === 'text/plain') { target = f; break; }
+            }
+            if (target) {
+                Drive.Files.update({}, target.getId(), texBlob);
             } else {
                 compiledFolder.createFile(texBlob);
             }
